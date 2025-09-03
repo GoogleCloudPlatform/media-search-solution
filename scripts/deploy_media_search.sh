@@ -20,6 +20,7 @@ SERVICE_ACCOUNT_EMAIL=$(terraform -chdir="$TERRAFORM_DIR" output -raw service_ac
 HIGH_RES_BUCKET=$(terraform -chdir="$TERRAFORM_DIR" output -raw high_res_bucket)
 LOW_RES_BUCKET=$(terraform -chdir="$TERRAFORM_DIR" output -raw low_res_bucket)
 CONFIG_BUCKET=$(terraform -chdir="$TERRAFORM_DIR" output -raw config_bucket)
+AUDIO_BUCKET=$(terraform -chdir="$TERRAFORM_DIR" output -raw audio_bucket)
 
 # Check if the variables are empty
 if [ -z "$PROJECT_ID" ] || [ -z "$CLOUD_RUN_SERVICE_NAME" ] || [ -z "$CLOUD_RUN_REGION" ] || [ -z "$CONTAINER_IMAGE_URI" ] || [ -z "$SERVICE_ACCOUNT_EMAIL" ] || [ -z "$HIGH_RES_BUCKET" ] || [ -z "$LOW_RES_BUCKET" ]; then
@@ -66,6 +67,8 @@ gcloud run deploy "$CLOUD_RUN_SERVICE_NAME" \
   --add-volume-mount volume=high-res-bucket,mount-path=/mnt/"$HIGH_RES_BUCKET" \
   --add-volume name=low-res-bucket,type=cloud-storage,bucket="$LOW_RES_BUCKET" \
   --add-volume-mount volume=low-res-bucket,mount-path=/mnt/"$LOW_RES_BUCKET" \
+  --add-volume name=audio-bucket,type=cloud-storage,bucket="$AUDIO_BUCKET" \
+  --add-volume-mount volume=audio-bucket,mount-path=/mnt/"$AUDIO_BUCKET" \
   --add-volume name=config-bucket,type=cloud-storage,bucket="$CONFIG_BUCKET" \
   --add-volume-mount volume=config-bucket,mount-path=/mnt/"$CONFIG_BUCKET" \
   --set-env-vars GCP_CONFIG_PREFIX=/mnt/"$CONFIG_BUCKET" \

@@ -120,3 +120,14 @@ module "media_search_service_account" {
   display_name = "Media Search Web Service Account"
   description  = "specific custom service account for Web APP"
 }
+
+resource "google_storage_bucket" "media_audio_bucket" {
+  name                        = var.audio_bucket
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = true
+  public_access_prevention    = "enforced"
+  versioning {
+    enabled = false
+  }
+}

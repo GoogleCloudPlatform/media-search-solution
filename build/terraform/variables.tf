@@ -38,3 +38,7 @@ variable "high_res_bucket" {
 variable "config_bucket" {
   type = string
 }
+
+variable "audio_bucket" {
+  type = string
+}

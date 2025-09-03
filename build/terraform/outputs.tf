@@ -32,6 +32,11 @@ output "config_bucket" {
   value       = var.config_bucket
 }
 
+output "audio_bucket" {
+  description = "The name of the audio output bucket."
+  value       = var.audio_bucket
+}
+
 output "cloud_run_service_name" {
   description = "The name of the Cloud Run service to deploy."
   value       = local.solution_prefix

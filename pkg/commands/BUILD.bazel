@@ -17,7 +17,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "commands",
     srcs = [
+        "audio_extractor.go",
+        "audio_transcription.go",
         "ffmpeg.go",
+        "file_wait.go",
         "media_assembly.go",
         "media_config_update.go",
         "media_content_type.go",
@@ -35,11 +38,13 @@ go_library(
         "//pkg/cor",
         "//pkg/model",
         "@com_google_cloud_go_bigquery//:bigquery",
-        "@com_google_cloud_go_storage//:storage",
+        "@com_google_cloud_go_speech//apiv2",
+        "@com_google_cloud_go_speech//apiv2/speechpb",
         "@io_opentelemetry_go_otel//attribute",
         "@io_opentelemetry_go_otel//codes",
         "@io_opentelemetry_go_otel_metric//:metric",
         "@io_opentelemetry_go_otel_trace//:trace",
+        "@org_golang_google_api//option",
         "@org_golang_google_genai//:genai",
     ],
 )

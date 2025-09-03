@@ -15,7 +15,6 @@
 package commands
 
 import (
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -46,7 +45,10 @@ func (m *MediaConfigUpdateCommand) Execute(context cor.Context) {
 
 	localConfigFile := configurationFilePrefix + gcsFile.Name
 
-	m.WaitForTheLocalFileToUpdate(localConfigFile)
+	// it can take some time to sync the file from the bucket to the local filesystem.
+	// We check for the file's existence and modification time to ensure we have the latest version.
+	const recentThreshold = 30 * time.Second
+	WaitForFileUpdate(localConfigFile, recentThreshold)
 
 	newConfig := cloud.NewConfig()
 	// Load the configuration values for the updated config files
@@ -57,22 +59,4 @@ func (m *MediaConfigUpdateCommand) Execute(context cor.Context) {
 	m.templateService.UpdateTemplates()
 
 	m.GetSuccessCounter().Add(context.GetContext(), 1)
-}
-
-func (m *MediaConfigUpdateCommand) WaitForTheLocalFileToUpdate(localFile string) {
-	// it can take some time to sync the file from the bucket to the local filesystem.
-	// We check for the file's existence and modification time to ensure we have the latest version.
-	const recentThreshold = 30 * time.Second
-	for i := range FileCheckRetries {
-		fileInfo, err := os.Stat(localFile)
-		if err == nil {
-			if time.Since(fileInfo.ModTime()) < recentThreshold {
-				log.Printf("Configuration file %s has been updated recently.", localFile)
-				return
-			}
-		}
-		log.Printf("waiting for configuration file to be updated: %s, attempt %d/%d", localFile, i+1, FileCheckRetries)
-		time.Sleep(FileCheckDelay)
-	}
-	log.Printf("Configuration file %s not updated after several retries. Proceeding with existing config.", localFile)
 }

@@ -70,6 +70,7 @@ APIS_TO_ENABLE=(
   "iap.googleapis.com"
   "pubsub.googleapis.com"
   "run.googleapis.com"
+  "speech.googleapis.com"
   "storage.googleapis.com"
 )
 
@@ -113,6 +114,24 @@ for role in "${SERVICE_AGENT_ROLES[@]}"; do
     --quiet
 done
 echo "Service Agent IAM roles assigned."
+echo
+
+SPEECH_SERVICE_AGENT="service-${PROJECT_NUMBER}@gcp-sa-speech.iam.gserviceaccount.com"
+echo "Speech Service Agent: $SPEECH_SERVICE_AGENT"
+
+SPEECH_SERVICE_AGENT_ROLES=(
+  "roles/storage.objectAdmin"
+)
+
+echo "Assigning IAM roles to the Speech service agent..."
+for role in "${SPEECH_SERVICE_AGENT_ROLES[@]}"; do
+
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:$SPEECH_SERVICE_AGENT" \
+    --role="$role" \
+    --quiet
+done
+echo "Speech Service Agent IAM roles assigned."
 echo
 
 # --- Terraform Variables File ---

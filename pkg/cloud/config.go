@@ -92,6 +92,7 @@ type Storage struct {
 	HiResInputBucket   string `toml:"high_res_input_bucket"` // The name of the bucket for high-resolution input files.
 	LowResOutputBucket string `toml:"low_res_output_bucket"` // The name of the bucket for low-resolution output files.
 	GCSFuseMountPoint  string `toml:"gcs_fuse_mount_point"`  // The mount point for GCS FUSE.
+	AudioBucket        string `toml:"audio_bucket"`          // The name of the bucket for audio output files.
 }
 
 type Category struct {

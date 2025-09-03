@@ -16,75 +16,52 @@ package commands
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/solutions/media/pkg/cloud"
 	"github.com/GoogleCloudPlatform/solutions/media/pkg/cor"
 )
 
-const (
-	DefaultVideoDurationCmdArgs = "-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s"
-)
-
-type MediaLengthCommand struct {
+type AudioExtractorCommand struct {
 	cor.BaseCommand
 	commandPath string
 	config      *cloud.Config
 }
 
-func NewMediaLengthCommand(name string, commandPath string, outputParamName string, config *cloud.Config) *MediaLengthCommand {
-	out := MediaLengthCommand{
+const (
+	DefaultAudioExtractorCmdArgs = "-i %s -q:a 0 -map a -ac 1 %s"
+)
+
+func NewAudioExtractorCommand(name string, commandPath string, config *cloud.Config) *AudioExtractorCommand {
+	out := AudioExtractorCommand{
 		BaseCommand: *cor.NewBaseCommand(name),
 		commandPath: commandPath,
 		config:      config,
 	}
-	out.OutputParamName = outputParamName
 	return &out
 }
 
-func (c *MediaLengthCommand) Execute(context cor.Context) {
+func (c *AudioExtractorCommand) Execute(context cor.Context) {
 	gcsFile := context.Get(cloud.GetGCSObjectName()).(*cloud.GCSObject)
 	inputFileName := fmt.Sprintf("%s/%s/%s", c.config.Storage.GCSFuseMountPoint, gcsFile.Bucket, gcsFile.Name)
-	log.Printf("Received message for media file: %s/%s", gcsFile.Bucket, gcsFile.Name)
 
-	if err := WaitForFile(inputFileName); err != nil {
-		c.GetErrorCounter().Add(context.GetContext(), 1)
-		context.AddError(c.GetName(), err)
-		return
-	}
+	outputFileName := strings.TrimSuffix(gcsFile.Name, ".mp4") + ".wav"
 
-	args := fmt.Sprintf(DefaultVideoDurationCmdArgs, inputFileName)
+	outputFileFullPath := fmt.Sprintf("%s/%s/%s", c.config.Storage.GCSFuseMountPoint, c.config.Storage.AudioBucket, outputFileName)
+
+	args := fmt.Sprintf(DefaultAudioExtractorCmdArgs, inputFileName, outputFileFullPath)
+
 	cmd := exec.Command(c.commandPath, strings.Split(args, CommandSeparator)...)
 	cmd.Stderr = os.Stderr
-	output, err := cmd.Output()
-	if err != nil {
-		c.GetErrorCounter().Add(context.GetContext(), 1)
-		context.AddError(c.GetName(), fmt.Errorf("error running ffprobe: %w", err))
-		return
-	}
+	_, err := cmd.Output()
 
-	length, err := extractVideoLengthToFullSeconds(output)
 	if err != nil {
 		c.GetErrorCounter().Add(context.GetContext(), 1)
-		context.AddError(c.GetName(), err)
+		context.AddError(c.GetName(), fmt.Errorf("error extracting audio with ffmpeg: %w", err))
 		return
 	}
 	c.GetSuccessCounter().Add(context.GetContext(), 1)
-
-	context.Add(c.GetOutputParam(), length)
-	context.Add(cor.CtxOut, length)
-}
-
-func extractVideoLengthToFullSeconds(output []byte) (int, error) {
-	s := strings.TrimSpace(string(output))
-
-	duration, err := strconv.ParseFloat(s, 64)
-	if err == nil {
-		return int(duration) + 1, nil
-	}
-	return 0, fmt.Errorf("got invalid video duration: %s", s)
+	context.Add(c.GetOutputParam(), fmt.Sprintf("gs://%s/%s", c.config.Storage.AudioBucket, outputFileName))
 }

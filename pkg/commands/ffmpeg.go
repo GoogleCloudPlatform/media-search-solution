@@ -19,7 +19,6 @@ import (
 	"io"
 	"log"
 	"path/filepath"
-	"time"
 
 	"os"
 	"os/exec"
@@ -60,18 +59,9 @@ func (c *FFMpegCommand) Execute(context cor.Context) {
 	inputFileName := fmt.Sprintf("%s/%s/%s", c.config.Storage.GCSFuseMountPoint, msg.Bucket, msg.Name)
 	log.Printf("Received message for media file: %s/%s", msg.Bucket, msg.Name)
 
-	var err error
-	for i := range FileCheckRetries {
-		if _, err = os.Stat(inputFileName); err == nil {
-			break
-		}
-		log.Printf("waiting for file to appear: %s, attempt %d/%d", inputFileName, i+1, FileCheckRetries)
-		time.Sleep(FileCheckDelay)
-	}
-
-	if err != nil {
+	if err := WaitForFile(inputFileName); err != nil {
 		c.GetErrorCounter().Add(context.GetContext(), 1)
-		context.AddError(c.GetName(), fmt.Errorf("file: %s not found after several retries. Error: %w", inputFileName, err))
+		context.AddError(c.GetName(), err)
 		return
 	}
 

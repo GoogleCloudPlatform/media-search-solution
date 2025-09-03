@@ -46,6 +46,7 @@ func (m *MediaReaderWorkflow) initializeChain() {
 	const MediaOutputParamName = "__media_output__"
 	const MediaLengthOutputParamName = "__media_length_output__"
 	const ContentTypeOutputParamName = "__content_type_output__"
+	const MediaTranscriptionFileOutputParamName = "__media_transcription_file_output__"
 
 	out := cor.NewBaseChain(m.GetName())
 
@@ -55,11 +56,17 @@ func (m *MediaReaderWorkflow) initializeChain() {
 	// Get media length
 	out.AddCommand(commands.NewMediaLengthCommand("get-media-length", m.ffprobeCommand, MediaLengthOutputParamName, m.config))
 
+	// Extract audio from the media file
+	out.AddCommand(commands.NewAudioExtractorCommand("extract-audio", "bin/ffmpeg", m.config))
+
+	// Create media transcription
+	out.AddCommand(commands.NewAudioTranscriptionCommand("transcribe-audio", m.config, MediaTranscriptionFileOutputParamName))
+
 	// Determine the media content type
 	out.AddCommand(commands.NewMediaContentTypeCommand("get-media-content-type", m.config, m.genaiModel, m.templateService, ContentTypeOutputParamName))
 
 	// Generate Summary
-	out.AddCommand(commands.NewMediaSummaryCreator("generate-media-summary", m.config, m.genaiModel, m.templateService, MediaLengthOutputParamName, ContentTypeOutputParamName))
+	out.AddCommand(commands.NewMediaSummaryCreator("generate-media-summary", m.config, m.genaiModel, m.templateService, MediaLengthOutputParamName, ContentTypeOutputParamName, MediaTranscriptionFileOutputParamName))
 
 	// Convert the JSON to a struct and save to the summaryOutputParam
 	out.AddCommand(commands.NewMediaSummaryJsonToStruct("convert-media-summary", SummaryOutputParamName))

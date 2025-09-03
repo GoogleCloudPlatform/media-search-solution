@@ -39,6 +39,7 @@ use_repo(
     "com_github_zeebo_assert",
     "com_google_cloud_go_bigquery",
     "com_google_cloud_go_pubsub",
+    "com_google_cloud_go_speech",
     "com_google_cloud_go_storage",
     "io_opentelemetry_go_contrib_bridges_otelslog",
     "io_opentelemetry_go_contrib_detectors_gcp",

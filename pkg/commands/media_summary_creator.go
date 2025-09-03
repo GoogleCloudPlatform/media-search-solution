@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/GoogleCloudPlatform/solutions/media/pkg/model"
 	"go.opentelemetry.io/otel/metric"
@@ -29,14 +31,15 @@ import (
 
 type MediaSummaryCreator struct {
 	cor.BaseCommand
-	config                     *cloud.Config
-	generativeAIModel          *cloud.QuotaAwareGenerativeAIModel
-	templateService            *cloud.TemplateService
-	contentTypeParamName       string
-	mediaLengthOutputParamName string
-	geminiInputTokenCounter    metric.Int64Counter
-	geminiOutputTokenCounter   metric.Int64Counter
-	geminiRetryCounter         metric.Int64Counter
+	config                                *cloud.Config
+	generativeAIModel                     *cloud.QuotaAwareGenerativeAIModel
+	templateService                       *cloud.TemplateService
+	contentTypeParamName                  string
+	mediaLengthOutputParamName            string
+	mediaTranscriptionFileOutputParamName string
+	geminiInputTokenCounter               metric.Int64Counter
+	geminiOutputTokenCounter              metric.Int64Counter
+	geminiRetryCounter                    metric.Int64Counter
 }
 
 func NewMediaSummaryCreator(
@@ -45,15 +48,17 @@ func NewMediaSummaryCreator(
 	generativeAIModel *cloud.QuotaAwareGenerativeAIModel,
 	templateService *cloud.TemplateService,
 	mediaLengthOutputParamName string,
-	contentTypeParamName string) *MediaSummaryCreator {
+	contentTypeParamName string,
+	mediaTranscriptionFileOutputParamName string) *MediaSummaryCreator {
 
 	out := &MediaSummaryCreator{
-		BaseCommand:                *cor.NewBaseCommand(name),
-		config:                     config,
-		generativeAIModel:          generativeAIModel,
-		templateService:            templateService,
-		mediaLengthOutputParamName: mediaLengthOutputParamName,
-		contentTypeParamName:       contentTypeParamName,
+		BaseCommand:                           *cor.NewBaseCommand(name),
+		config:                                config,
+		generativeAIModel:                     generativeAIModel,
+		templateService:                       templateService,
+		mediaLengthOutputParamName:            mediaLengthOutputParamName,
+		mediaTranscriptionFileOutputParamName: mediaTranscriptionFileOutputParamName,
+		contentTypeParamName:                  contentTypeParamName,
 	}
 
 	out.geminiInputTokenCounter, _ = out.GetMeter().Int64Counter(fmt.Sprintf("%s.gemini.token.input", out.GetName()))
@@ -63,30 +68,52 @@ func NewMediaSummaryCreator(
 	return out
 }
 
-func (t *MediaSummaryCreator) GenerateParams(context cor.Context) map[string]interface{} {
+func (t *MediaSummaryCreator) GenerateParams(context cor.Context) (map[string]interface{}, error) {
 	mediaLengthInSeconds := context.Get(t.mediaLengthOutputParamName).(int)
+	mediaTranscriptionFile := context.Get(t.mediaTranscriptionFileOutputParamName).(string)
+
+	parts := strings.SplitN(strings.TrimPrefix(mediaTranscriptionFile, "gs://"), "/", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid GCS URI for transcription file: %s", mediaTranscriptionFile)
+	}
+	bucket := parts[0]
+	object := parts[1]
+
+	localPath := fmt.Sprintf("%s/%s/%s", t.config.Storage.GCSFuseMountPoint, bucket, object)
+
+	if err := WaitForFile(localPath); err != nil {
+		return nil, err
+	}
+
+	content, err := os.ReadFile(localPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read transcription file %s: %w", localPath, err)
+	}
+
 	params := make(map[string]interface{})
+	params["TRANSCRIPT"] = string(content)
 
 	// Create a string representation of the categories
-	catStr := ""
-	for key, cat := range t.config.Categories {
-		catStr += key + " - " + cat.Definition + "; "
-	}
 	params["CATEGORIES"] = t.config.Categories
 
 	exampleSummary, _ := json.Marshal(model.GetExampleSummary())
 	params["EXAMPLE_JSON"] = string(exampleSummary)
 	params["VIDEO_LENGTH"] = fmt.Sprintf("%d", mediaLengthInSeconds)
-	return params
+	return params, nil
 }
 
 func (t *MediaSummaryCreator) Execute(context cor.Context) {
 	gcsFile := context.Get(cloud.GetGCSObjectName()).(*cloud.GCSObject)
 	gcsFileLink := fmt.Sprintf("gs://%s/%s", gcsFile.Bucket, gcsFile.Name)
 	mediaType := context.Get(t.contentTypeParamName).(string)
-
 	var buffer bytes.Buffer
-	err := t.templateService.GetTemplateBy(mediaType).SummaryPrompt.Execute(&buffer, t.GenerateParams(context))
+	params, err := t.GenerateParams(context)
+	if err != nil {
+		t.GetErrorCounter().Add(context.GetContext(), 1)
+		context.AddError(t.GetName(), err)
+		return
+	}
+	err = t.templateService.GetTemplateBy(mediaType).SummaryPrompt.Execute(&buffer, params)
 	if err != nil {
 		t.GetErrorCounter().Add(context.GetContext(), 1)
 		context.AddError(t.GetName(), err)

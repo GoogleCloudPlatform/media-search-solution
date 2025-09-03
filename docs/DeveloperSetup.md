@@ -29,13 +29,25 @@ cat configs/.env.local.toml
     ```sh
     HIGH_RES_BUCKET=$(terraform -chdir=build/terraform output -raw high_res_bucket)
     LOW_RES_BUCKET=$(terraform -chdir=build/terraform output -raw low_res_bucket)
+    CONFIG_BUCKET=$(terraform -chdir=build/terraform output -raw config_bucket)
+    AUDIO_BUCKET=$(terraform -chdir=build/terraform output -raw audio_bucket)
     ROOT_MOUNT_DIR="$HOME/media-search-mnt"
     HIGH_RES_MOUNT_POINT="$ROOT_MOUNT_DIR/$HIGH_RES_BUCKET"
     LOW_RES_MOUNT_POINT="$ROOT_MOUNT_DIR/$LOW_RES_BUCKET"
+    CONFIG_MOUNT_POINT="$ROOT_MOUNT_DIR/$CONFIG_BUCKET"
+    AUDIO_MOUNT_POINT="$ROOT_MOUNT_DIR/$AUDIO_BUCKET"
     mkdir -p "$HIGH_RES_MOUNT_POINT"
     mkdir -p "$LOW_RES_MOUNT_POINT"
+    mkdir -p "$CONFIG_MOUNT_POINT"
+    mkdir -p "$AUDIO_MOUNT_POINT"
+    fusermount -u "$HIGH_RES_MOUNT_POINT"
+    fusermount -u "$LOW_RES_MOUNT_POINT"
+    fusermount -u "$CONFIG_MOUNT_POINT"
+    fusermount -u "$AUDIO_MOUNT_POINT"
     gcsfuse "$HIGH_RES_BUCKET" "$HIGH_RES_MOUNT_POINT"
     gcsfuse "$LOW_RES_BUCKET" "$LOW_RES_MOUNT_POINT"
+    gcsfuse "$CONFIG_BUCKET" "$CONFIG_MOUNT_POINT"
+    gcsfuse "$AUDIO_BUCKET" "$AUDIO_MOUNT_POINT"
     ```
 
 1. Next, you need to inform the application where to find the GCS Fuse mount point. This is done by adding the `gcs_fuse_mount_point` setting to your local configuration file (`configs/.env.local.toml`). The following command automates this update. It adds the configuration under the `[storage]` section
