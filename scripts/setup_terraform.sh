@@ -84,6 +84,9 @@ echo
 echo "Creating Vertex AI service agent identity..."
 gcloud beta services identity create --service=aiplatform.googleapis.com --project="$PROJECT_ID"
 
+echo "Creating Speech API service agent identity..."
+gcloud beta services identity create --service=speech.googleapis.com --project="$PROJECT_ID"
+
 echo "Waiting 60 seconds for the service agent to be created and propagated..."
 sleep 60
 
@@ -121,6 +124,7 @@ echo "Speech Service Agent: $SPEECH_SERVICE_AGENT"
 
 SPEECH_SERVICE_AGENT_ROLES=(
   "roles/storage.objectAdmin"
+  "roles/storage.bucketViewer"
 )
 
 echo "Assigning IAM roles to the Speech service agent..."

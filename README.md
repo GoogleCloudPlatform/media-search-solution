@@ -93,6 +93,7 @@ Once the project is set up, the identity deploying the Infrastructure-as-Code (I
     |project_id|Your Google Cloud project ID.|
     |high_res_bucket|A unique name for the Cloud Storage bucket that will store high-resolution media (e.g., "media-high-res-your-project-id").|
     |low_res_bucket|A unique name for the Cloud Storage bucket that will store low-resolution media (e.g., "media-low-res-your-project-id").|
+    |audio_bucket|A unique name for the Cloud Storage bucket that will store extracted audio files (e.g., "media-audio-your-project-id").|
     |config_bucket|A unique name for the Cloud Storage bucket that will store solution configuration files (e.g., "media-search-configs-your-project-id").|
     |region|(Optional) The Google Cloud region for deployment. Defaults to `us-central1`.|
 

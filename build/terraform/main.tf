@@ -66,6 +66,7 @@ resource "local_file" "deployment_configuration" {
     project_id            = var.project_id
     high_res_input_bucket = var.high_res_bucket
     low_res_output_bucket = var.low_res_bucket
+    audio_bucket          = var.audio_bucket
   })
 }
 
@@ -116,6 +117,7 @@ module "media_search_service_account" {
     "${var.project_id}=>roles/pubsub.subscriber",
     "${var.project_id}=>roles/cloudtrace.agent",
     "${var.project_id}=>roles/monitoring.metricWriter",
+    "${var.project_id}=>roles/speech.client",
   ]
   display_name = "Media Search Web Service Account"
   description  = "specific custom service account for Web APP"
