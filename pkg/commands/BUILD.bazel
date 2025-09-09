@@ -13,6 +13,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Author: rrmcguinness (Ryan McGuinness)
+#         kingman (Charlie Wang)
 
 go_library(
     name = "commands",
@@ -31,7 +34,7 @@ go_library(
         "media_trigger_reader.go",
         "scene_extractor.go",
     ],
-    importpath = "github.com/GoogleCloudPlatform/solutions/media/pkg/commands",
+    importpath = "github.com/GoogleCloudPlatform/media-search-solution/pkg/commands",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/cloud",

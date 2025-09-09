@@ -11,15 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Author: rrmcguinness (Ryan McGuinness)
 
 package cor
 
 import (
 	"fmt"
+	"log"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-	"log"
 )
 
 // BaseCommand is the default implementation of Command
@@ -34,7 +37,7 @@ type BaseCommand struct {
 }
 
 func NewBaseCommand(name string) *BaseCommand {
-	meter := otel.Meter("github.com/GoogleCloudPlatform/solutions/media")
+	meter := otel.Meter("github.com/GoogleCloudPlatform/media-search-solution")
 	successCounter, err := meter.Int64Counter(fmt.Sprintf("%s.counter.success", name))
 	if err != nil {
 		log.Printf("error creating success counter: %s\n", name)

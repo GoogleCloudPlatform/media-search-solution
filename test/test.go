@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Author: rrmcguinness (Ryan McGuinness)
 
 package test
 
@@ -19,7 +21,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/solutions/media/pkg/cloud"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
 )
 
 type StateManager struct {

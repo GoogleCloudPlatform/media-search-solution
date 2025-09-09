@@ -13,6 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Author: kingman (Charlie Wang)
+#         gfilicetti (Gino Filicetti)
 
 # This script automates the initial setup required before running Terraform.
 # It ensures that Terraform and gcloud are installed, logs into Google Cloud,

@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Author: kingman (Charlie Wang)
 
 # Stage 1: The Builder
 # This stage uses a Go image, installs Bazel, and builds our application.

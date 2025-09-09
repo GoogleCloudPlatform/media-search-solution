@@ -1,4 +1,4 @@
-module github.com/GoogleCloudPlatform/solutions/media
+module github.com/GoogleCloudPlatform/media-search-solution
 
 go 1.23.1
 

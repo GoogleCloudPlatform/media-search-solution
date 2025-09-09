@@ -13,6 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Author: kingman (Charlie Wang)
 
 # This script cleans up all resources associated with a specific media file.
 # It deletes the file from both high-resolution and low-resolution

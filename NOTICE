@@ -14,3 +14,9 @@
 
 This project is built on top of other Open Source Software, please see the
 manifest of each project / module for license details.
+
+Project History:
+This Media Search Solution originated from the work of Ryan McGuinness,
+available at: https://github.com/rrmcguinness/gcp-media-go.
+It further incorporates modifications and enhancements by Jay Cherian and Gino Filicetti,
+available at: https://github.com/jaycherian/gcp-go-media-search.

@@ -11,15 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Author: rrmcguinness (Ryan McGuinness)
 
 package workflow_test
 
 import (
 	"fmt"
-	"github.com/GoogleCloudPlatform/solutions/media/pkg/cor"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/solutions/media/pkg/workflow"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cor"
+
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/workflow"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/codes"
 )

@@ -46,6 +46,13 @@ This solution is ideal for:
 
 The processing pipeline is built on the Chain of Responsibility (COR) design pattern. Each unit of work is atomic, and state is conveyed via a shared context object to each link in the chain.
 
+## Project History
+
+This Media Search Solution originated from the work of Ryan McGuinness,
+available at: https://github.com/rrmcguinness/gcp-media-go.
+It further incorporates modifications and enhancements by Jay Cherian and Gino Filicetti,
+available at: https://github.com/jaycherian/gcp-go-media-search.
+
 ## Deployment Guide
 
 This section provides step-by-step instructions for deploying the `Media Search Solution` on Google Cloud.
@@ -145,13 +152,13 @@ To test the end-to-end processing workflow, you need to upload a video file to t
 
 #### 2.1. Uploading a Video
 
-**Alernative 1:**  Run the following command to get url to the Google Cloud console and navigate to the url in a web brower and upload your video file through the ui
+**Option 1:**  Run the following command to get a URL to the Google Cloud console. Navigate to the URL in a web browser and upload your video file through the UI.
 
 ```sh
 echo "https://console.cloud.google.com/storage/browser/$(terraform -chdir="build/terraform" output -raw high_res_bucket)?project=$(terraform -chdir="build/terraform" output -raw project_id)"
 ```
 
-**Alernative 2:**.  Use the `gsutil` command-line tool to upload a video file. Replace `<YOUR_VIDEO_FILE>` with the path to your video.
+**Option 2:**.  Use the `gsutil` command-line tool to upload a video file. Replace `<YOUR_VIDEO_FILE>` with the path to your video.
 
 ```sh
 gsutil cp <YOUR_VIDEO_FILE> gs://$(terraform -chdir="build/terraform" output -raw high_res_bucket)/
