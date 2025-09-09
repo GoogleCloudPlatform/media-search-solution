@@ -20,8 +20,8 @@ import (
 
 	speech "cloud.google.com/go/speech/apiv2"
 	"cloud.google.com/go/speech/apiv2/speechpb"
-	"github.com/GoogleCloudPlatform/solutions/media/pkg/cloud"
-	"github.com/GoogleCloudPlatform/solutions/media/pkg/cor"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cor"
 	"google.golang.org/api/option"
 )
 
