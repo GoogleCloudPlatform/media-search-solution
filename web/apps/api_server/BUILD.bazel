@@ -13,6 +13,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Author: rrmcguinness (Ryan McGuinness)
 
 go_library(
     name = "api_server_lib",
@@ -24,7 +26,7 @@ go_library(
         "media.go",
         "setup.go",
     ],
-    importpath = "github.com/GoogleCloudPlatform/solutions/media/web/apps/api_server",
+    importpath = "github.com/GoogleCloudPlatform/media-search-solution/web/apps/api_server",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/cloud",

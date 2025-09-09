@@ -11,20 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Author: rrmcguinness (Ryan McGuinness)
 
 package telemetry
 
 import (
 	"context"
 	"errors"
-	"go.opentelemetry.io/otel/sdk/metric"
 	"log"
 	"log/slog"
+
+	"go.opentelemetry.io/otel/sdk/metric"
 
 	mexporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric"
 	telemetryexporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 
-	"github.com/GoogleCloudPlatform/solutions/media/pkg/cloud"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
 	"go.opentelemetry.io/contrib/detectors/gcp"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/otel"
@@ -94,7 +97,7 @@ func SetupOpenTelemetry(ctx context.Context, config *cloud.Config) (shutdown fun
 	)
 
 	// Setup Namespace Meter
-	otel.Meter("github.com/GoogleCloudPlatform/solutions/media")
+	otel.Meter("github.com/GoogleCloudPlatform/media-search-solution")
 
 	shutdownFuncs = append(shutdownFuncs, mProvider.Shutdown)
 	otel.SetMeterProvider(mProvider)

@@ -46,6 +46,13 @@ This solution is ideal for:
 
 The processing pipeline is built on the Chain of Responsibility (COR) design pattern. Each unit of work is atomic, and state is conveyed via a shared context object to each link in the chain.
 
+## Project History
+
+This Media Search Solution originated from the work of Ryan McGuinness,
+available at: https://github.com/rrmcguinness/gcp-media-go.
+It further incorporates modifications and enhancements by Jay Cherian and Gino Filicetti,
+available at: https://github.com/jaycherian/gcp-go-media-search.
+
 ## Deployment Guide
 
 This section provides step-by-step instructions for deploying the `Media Search Solution` on Google Cloud.
