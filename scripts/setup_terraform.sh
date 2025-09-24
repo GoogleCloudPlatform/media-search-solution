@@ -69,11 +69,13 @@ APIS_TO_ENABLE=(
   "artifactregistry.googleapis.com"
   "cloudbuild.googleapis.com"
   "cloudresourcemanager.googleapis.com"
+  "eventarc.googleapis.com"
   "iam.googleapis.com"
   "iap.googleapis.com"
   "pubsub.googleapis.com"
   "run.googleapis.com"
   "storage.googleapis.com"
+  "workflows.googleapis.com"
 )
 
 echo "Enabling necessary Google Cloud APIs. This may take a few minutes..."
@@ -85,6 +87,9 @@ echo
 
 echo "Creating Vertex AI service agent identity..."
 gcloud beta services identity create --service=aiplatform.googleapis.com --project="$PROJECT_ID"
+
+echo "Creating Workflows service agent identity..."
+gcloud beta services identity create --service=workflows.googleapis.com --project="$PROJECT_ID"
 
 echo "Waiting 60 seconds for the service agent to be created and propagated..."
 sleep 60
