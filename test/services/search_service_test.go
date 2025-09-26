@@ -50,10 +50,10 @@ func TestSearchService(t *testing.T) {
 		EmbeddingModel: embeddingModel,
 		DatasetName:    "media_ds",
 		MediaTable:     "media",
-		EmbeddingTable: "scene_embeddings",
+		EmbeddingTable: "segment_embeddings",
 	}
 
-	out, err := searchService.FindScenes(ctx, "Scenes that Woody Harrelson", 5)
+	out, err := searchService.FindSegments(ctx, "Segments that Woody Harrelson", 5)
 
 	if err != nil {
 		t.Error(err)

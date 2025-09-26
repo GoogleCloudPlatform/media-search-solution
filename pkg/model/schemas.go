@@ -46,7 +46,7 @@ func NewMediaSummarySchema() *genai.Schema {
 					Required: []string{"character_name", "actor_name"},
 				},
 			},
-			"scene_time_stamps": {
+			"segment_time_stamps": {
 				Type:     "array",
 				Nullable: genai.Ptr(true),
 				Items: &genai.Schema{
@@ -63,8 +63,8 @@ func NewMediaSummarySchema() *genai.Schema {
 	}
 }
 
-func NewSceneExtractorSchema() *genai.Schema {
-	// Define the schema for SceneExtractor
+func NewSegmentExtractorSchema() *genai.Schema {
+	// Define the schema for SegmentExtractor
 	return &genai.Schema{
 		Type: "object",
 		Properties: map[string]*genai.Schema{

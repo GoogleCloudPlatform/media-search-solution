@@ -16,9 +16,9 @@
 
 package model
 
-// GetExampleScene is used to provide an example to the generative contexts.
-func GetExampleScene() *Scene {
-	out := &Scene{SequenceNumber: 1, Start: "00:00:00", End: "00:01:00", Script: `
+// GetExampleSegment is used to provide an example to the generative contexts.
+func GetExampleSegment() *Segment {
+	out := &Segment{SequenceNumber: 1, Start: "00:00:00", End: "00:01:00", Script: `
 INT. BATTLEFIELD - DAY
 
 A fierce battle is raging. Soldiers are fighting and dying all around.
@@ -42,19 +42,19 @@ Simon helps River to her feet. They run away together.`}
 
 func GetExampleSummary() *MediaSummary {
 	s := &MediaSummary{
-		Title:           "Serenity",
-		Category:        "trailer",
-		Summary:         "The crew of the ship Serenity try to evade an assassin sent to recapture telepath River.",
-		LengthInSeconds: 120,
-		MediaUrl:        "https://storage.mtls.cloud.google.com/bucket_name/Serenity.mp4",
-		Director:        "Joss Whedon",
-		ReleaseYear:     2005,
-		Genre:           "Science Fiction",
-		Rating:          "PG-13",
-		SceneTimeStamps: make([]*TimeSpan, 0),
-		Cast:            make([]*CastMember, 0),
+		Title:             "Serenity",
+		Category:          "trailer",
+		Summary:           "The crew of the ship Serenity try to evade an assassin sent to recapture telepath River.",
+		LengthInSeconds:   120,
+		MediaUrl:          "https://storage.mtls.cloud.google.com/bucket_name/Serenity.mp4",
+		Director:          "Joss Whedon",
+		ReleaseYear:       2005,
+		Genre:             "Science Fiction",
+		Rating:            "PG-13",
+		SegmentTimeStamps: make([]*TimeSpan, 0),
+		Cast:              make([]*CastMember, 0),
 	}
-	s.SceneTimeStamps = append(s.SceneTimeStamps, &TimeSpan{Start: "00:00:00", End: "00:00:05"}, &TimeSpan{Start: "00:00:06", End: "00:00:10"})
+	s.SegmentTimeStamps = append(s.SegmentTimeStamps, &TimeSpan{Start: "00:00:00", End: "00:00:05"}, &TimeSpan{Start: "00:00:06", End: "00:00:10"})
 	s.Cast = append(s.Cast, &CastMember{CharacterName: "Malcolm Reynolds", ActorName: "Nathan Fillion"})
 	s.Cast = append(s.Cast, &CastMember{CharacterName: "River Tam", ActorName: "Summar Glau"})
 	s.Cast = append(s.Cast, &CastMember{CharacterName: "Simon Tam", ActorName: "Sean Maher"})

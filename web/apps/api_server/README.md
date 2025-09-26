@@ -20,7 +20,7 @@ This is a simple server housing multiple functions
 
 * /media?s= search
 * /media/:id find media by id
-* /media/:id/scenes/:scene_id find scenes
+* /media/:id/segments/:segment_id find segments
 
 ## Prior to running the server
 

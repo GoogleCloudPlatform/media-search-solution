@@ -35,15 +35,15 @@ func TestNewMedia(t *testing.T) {
 	assert.Equal(t, generatedID.String(), media.Id)
 	assert.WithinDuration(t, time.Now(), media.CreateDate, time.Second)
 	assert.Equal(t, 0, len(media.Cast))
-	assert.Equal(t, 0, len(media.Scenes))
+	assert.Equal(t, 0, len(media.Segments))
 }
 
-func TestNewSceneEmbedding(t *testing.T) {
+func TestNewSegmentEmbedding(t *testing.T) {
 	mediaId := "test-media-id"
 	sequenceNumber := 1
 	modelName := "test-model"
 
-	embedding := model.NewSceneEmbedding(mediaId, sequenceNumber, modelName)
+	embedding := model.NewSegmentEmbedding(mediaId, sequenceNumber, modelName)
 
 	assert.Equal(t, mediaId, embedding.Id)
 	assert.Equal(t, sequenceNumber, embedding.SequenceNumber)

@@ -50,17 +50,17 @@ func (s *MediaService) Get(ctx context.Context, id string) (media *model.Media, 
 	return media, err
 }
 
-// GetScene returns a scene in a specified media type by its sequence number
-func (s *MediaService) GetScene(ctx context.Context, id string, sceneSequence int) (scene *model.Scene, err error) {
+// GetSegment returns a segment in a specified media type by its sequence number
+func (s *MediaService) GetSegment(ctx context.Context, id string, segmentSequence int) (segment *model.Segment, err error) {
 	fqMediaTableName := strings.Replace(s.BigqueryClient.Dataset(s.DatasetName).Table(s.MediaTable).FullyQualifiedName(), ":", ".", -1)
-	queryText := fmt.Sprintf(QryGetScene, fqMediaTableName, id, sceneSequence)
+	queryText := fmt.Sprintf(QryGetSegment, fqMediaTableName, id, segmentSequence)
 	q := s.BigqueryClient.Query(queryText)
 	itr, err := q.Read(ctx)
 	if err != nil {
-		return scene, err
+		return segment, err
 	}
-	scene = &model.Scene{}
+	segment = &model.Segment{}
 	// Since this should only return a single result
-	err = itr.Next(scene)
-	return scene, err
+	err = itr.Next(segment)
+	return segment, err
 }

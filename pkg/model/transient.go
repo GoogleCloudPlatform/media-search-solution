@@ -31,20 +31,20 @@ type TimeSpan struct {
 }
 
 type MediaSummary struct {
-	Title           string        `json:"title"`
-	Category        string        `json:"category"`
-	Summary         string        `json:"summary"`
-	LengthInSeconds int           `json:"length_in_seconds"`
-	MediaUrl        string        `json:"media_url,omitempty"`
-	Director        string        `json:"director,omitempty"`
-	ReleaseYear     int           `json:"release_year,omitempty"`
-	Genre           string        `json:"genre,omitempty"`
-	Rating          string        `json:"rating,omitempty"`
-	Cast            []*CastMember `json:"cast,omitempty"`
-	SceneTimeStamps []*TimeSpan   `json:"scene_time_stamps,omitempty"`
+	Title             string        `json:"title"`
+	Category          string        `json:"category"`
+	Summary           string        `json:"summary"`
+	LengthInSeconds   int           `json:"length_in_seconds"`
+	MediaUrl          string        `json:"media_url,omitempty"`
+	Director          string        `json:"director,omitempty"`
+	ReleaseYear       int           `json:"release_year,omitempty"`
+	Genre             string        `json:"genre,omitempty"`
+	Rating            string        `json:"rating,omitempty"`
+	Cast              []*CastMember `json:"cast,omitempty"`
+	SegmentTimeStamps []*TimeSpan   `json:"segment_time_stamps,omitempty"`
 }
 
-type SceneMatchResult struct {
+type SegmentMatchResult struct {
 	MediaId        string `json:"media_id" bigquery:"media_id"`
 	SequenceNumber int    `json:"sequence_number" bigquery:"sequence_number"`
 }
