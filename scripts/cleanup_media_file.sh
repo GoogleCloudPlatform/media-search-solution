@@ -76,7 +76,7 @@ main() {
   info "Cleaning up BigQuery records..."
 
   local table
-  table="scene_embeddings"
+  table="segment_embeddings"
   info "Deleting records from table: ${table}"
   bq query --project_id="${project_id}" --use_legacy_sql=false \
     "DELETE FROM \`${project_id}.${bq_dataset}.${table}\` WHERE media_id IN (SELECT id FROM \`${project_id}.${bq_dataset}.media\` WHERE media_url LIKE '%${media_file_name}')"

@@ -39,9 +39,9 @@ resource "google_bigquery_dataset" "media_ds" {
 }
 
 # trunk-ignore(checkov/CKV_GCP_80)
-resource "google_bigquery_table" "media_ds_scene_embeddings" {
+resource "google_bigquery_table" "media_ds_segment_embeddings" {
   dataset_id = google_bigquery_dataset.media_ds.dataset_id
-  table_id   = "scene_embeddings"
+  table_id   = "segment_embeddings"
   deletion_protection = true
   schema = <<EOF
 [
@@ -149,7 +149,7 @@ resource "google_bigquery_table" "media_ds_media" {
         ]
     },
     {
-        "name": "scenes",
+        "name": "segments",
         "type": "RECORD",
         "mode": "REPEATED",
         "fields": [

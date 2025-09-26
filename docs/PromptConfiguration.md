@@ -9,8 +9,8 @@ The media analysis pipeline uses three types of prompts, corresponding to the ma
 | Prompt Type          | Description                                                              |
 | -------------------- | ------------------------------------------------------------------------ |
 | Content Type Prompt  | Determines the content type of the media file (e.g., "sports", "trailer"). |
-| Media Summary Prompt | Creates a content summary and identifies logical scenes in the media file. |
-| Scene Summary Prompt | Generates a detailed description for a specific scene or segment.        |
+| Media Summary Prompt | Creates a content summary and identifies logical segments in the media file. |
+| Segment Summary Prompt | Generates a detailed description for a specific segment. |
 
 
 
@@ -21,7 +21,7 @@ All prompts are configured in a TOML file located in the `configs/` directory. T
 The configuration logic is as follows:
 1.  You define a list of supported content types (e.g., "sports", "trailer").
 2.  You provide a prompt template that the AI uses to classify a video into one of those types.
-3.  For each content type, you provide a set of specific prompt templates for generating summaries and scene descriptions.
+3.  For each content type, you provide a set of specific prompt templates for generating summaries and segment descriptions.
 
 The solution comes with two out-of-the-box content types:
 - trailer (default type)
@@ -104,7 +104,7 @@ Example Output Format:
 {{ .EXAMPLE_JSON }}
 """
 
-scene = """Given the following media file, summary, actors, and characters, extract the following details for the time segment {{ .TIME_START }} - {{ .TIME_END }} in a valid JSON format.
+segment = """Given the following media file, summary, actors, and characters, extract the following details for the time segment {{ .TIME_START }} - {{ .TIME_END }} in a valid JSON format.
 The given time segement timestamps are in the format of HH:MM:SS or hours:minutes:seconds.
 **Extraction Details:**
 - sequence_number: {{ .SEQUENCE }} as a number
@@ -126,7 +126,7 @@ Example Output:
 
 *   `system_instructions`: Provides a role or context for the AI model when it processes the media file for this content type.
 *   `summary`: The prompt template for generating a structured summary of the entire video.
-*   `scene`: The prompt template for generating a structured description of a specific video segment.
+*   `segment`: The prompt template for generating a structured description of a specific video segment.
 
 **Template Variables for `summary` prompt:**
 
@@ -135,16 +135,16 @@ Example Output:
 *   `{{ .EXAMPLE_JSON }}`: An example JSON object to specify the expected output format.
 
 
-**Template Variables for `scene` prompt:**
+**Template Variables for `segment` prompt:**
 
-*   `{{ .SEQUENCE }}`: The sequence number of the scene being analyzed.
-*   `{{ .TIME_START }}`: The start time of the scene segment in `HH:MM:SS` format.
-*   `{{ .TIME_END }}`: The end time of the scene segment in `HH:MM:SS` format.
+*   `{{ .SEQUENCE }}`: The sequence number of the segment being analyzed.
+*   `{{ .TIME_START }}`: The start time of the segment segment in `HH:MM:SS` format.
+*   `{{ .TIME_END }}`: The end time of the segment segment in `HH:MM:SS` format.
 *   `{{ .SUMMARY_DOCUMENT }}`: The full media summary generated in the previous step.
 *   `{{ .EXAMPLE_JSON }}`: An example JSON object to specify the expected output format.
 
 ### 3.3. JSON Output Schema
-The JSON schemas for both the summary and scene outputs are defined in `pkg/model/schemas.go`. This file acts as the source of truth for the expected JSON structure. When you modify or create prompts, ensure that the fields you ask the AI to extract align with the definitions in the schema file to ensure correct parsing.
+The JSON schemas for both the summary and segment outputs are defined in `pkg/model/schemas.go`. This file acts as the source of truth for the expected JSON structure. When you modify or create prompts, ensure that the fields you ask the AI to extract align with the definitions in the schema file to ensure correct parsing.
 
 
 ## 4. Customizing Prompts
@@ -153,7 +153,7 @@ You can easily add support for new content types or modify existing ones.
 
 ### 4.1. Modifying Existing Prompts
 
-To change the analysis behavior for an existing content type (e.g., `sports`), edit the `system_instructions`, `summary`, or `scene` values within the corresponding `[prompt_templates.sports]` table in your configuration file.
+To change the analysis behavior for an existing content type (e.g., `sports`), edit the `system_instructions`, `summary`, or `segment` values within the corresponding `[prompt_templates.sports]` table in your configuration file.
 
 ### 4.2. Adding a New Content Type
 
@@ -184,7 +184,7 @@ The video is {{ .VIDEO_LENGTH }} seconds long, etc
 ...
 
 """
-scene = """
+segment = """
 Given the following media file, analyze and describe the news segment from {{ .TIME_START }} to {{ .TIME_END }}.
 **Extraction Details:**
 ...

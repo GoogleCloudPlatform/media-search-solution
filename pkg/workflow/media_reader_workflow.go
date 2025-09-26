@@ -46,7 +46,7 @@ func (m *MediaReaderWorkflow) Execute(context cor.Context) {
 
 func (m *MediaReaderWorkflow) initializeChain() {
 	const SummaryOutputParamName = "__summary_output__"
-	const SceneOutputParamName = "__scene_output__"
+	const SegmentOutputParamName = "__segment_output__"
 	const MediaOutputParamName = "__media_output__"
 	const MediaLengthOutputParamName = "__media_length_output__"
 	const ContentTypeOutputParamName = "__content_type_output__"
@@ -68,13 +68,13 @@ func (m *MediaReaderWorkflow) initializeChain() {
 	// Convert the JSON to a struct and save to the summaryOutputParam
 	out.AddCommand(commands.NewMediaSummaryJsonToStruct("convert-media-summary", SummaryOutputParamName))
 
-	// Create the scene extraction command
-	sceneExtractor := commands.NewSceneExtractor("extract-media-scenes", m.genaiModel, m.templateService, m.numberOfWorkers, ContentTypeOutputParamName)
-	sceneExtractor.BaseCommand.OutputParamName = SceneOutputParamName
-	out.AddCommand(sceneExtractor)
+	// Create the segment extraction command
+	segmentExtractor := commands.NewSegmentExtractor("extract-media-segments", m.genaiModel, m.templateService, m.numberOfWorkers, ContentTypeOutputParamName)
+	segmentExtractor.BaseCommand.OutputParamName = SegmentOutputParamName
+	out.AddCommand(segmentExtractor)
 
 	// Assemble the output into a single media object
-	out.AddCommand(commands.NewMediaAssembly("assemble-media-scenes", SummaryOutputParamName, SceneOutputParamName, MediaOutputParamName, MediaLengthOutputParamName))
+	out.AddCommand(commands.NewMediaAssembly("assemble-media-segments", SummaryOutputParamName, SegmentOutputParamName, MediaOutputParamName, MediaLengthOutputParamName))
 
 	// Save media object to big query for async embedding job
 	out.AddCommand(commands.NewMediaPersistToBigQuery(

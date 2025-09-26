@@ -25,7 +25,7 @@ When you deploy this solution, it sets up an automated pipeline on Google Cloud 
 
 1.  **Ingests Videos:** Watches for new video uploads to a designated Cloud Storage bucket.
 1.  **Processes Media:** Automatically creates low-resolution proxy versions for efficient playback and analysis.
-1.  **Extracts Intelligence:** Uses Google's Gemini models to analyze video content and extract rich metadata, such as object detection, scene descriptions, and key topics.
+1.  **Extracts Intelligence:** Uses Google's Gemini models to analyze video content and extract rich metadata, such as object detection, segment descriptions, and key topics.
 1.  **Persists Data:** Stores all extracted metadata and analysis results in a structured BigQuery dataset.
 1.  **Enables Search:** Deploys a secure web application on Cloud Run that allows users to perform powerful, AI-driven searches across the entire video library.
 
@@ -181,8 +181,8 @@ Look for log entries related to the processing of your uploaded file. A key log 
 Once the processing is finished, you can use the web application to search for content within your video.
 
 1.  Navigate back to the Media Search application URL in your browser.
-2.  In the search bar, enter a free-text query related to the content of the video you uploaded. For example, if your video contains a scene with a car, you could search for "car".
-3.  The application will display a list of video scenes that have a high correlation with your search term. You can play the specific scenes and view scene descriptions directly in the browser.
+2.  In the search bar, enter a free-text query related to the content of the video you uploaded. For example, if your video contains a segment with a car, you could search for "car".
+3.  The application will display a list of video segments that have a high correlation with your search term. You can play the specific segments and view segment descriptions directly in the browser.
 
 **Note:** IAP permission changes can take up to 7 minutes to propagate. If you encounter a `You don't have access` page, please wait a few minutes and then refresh your browser.
 
@@ -200,7 +200,7 @@ For example:
 
 By tailoring the prompts, you guide the AI to extract the most relevant and valuable metadata for your needs, which significantly enhances the accuracy and usefulness of the search results.
 
-For detailed instructions on how to modify the content type, summary, and scene analysis prompts, please refer to the [Prompt Configuration Guide](docs/PromptConfiguration.md).
+For detailed instructions on how to modify the content type, summary, and segment analysis prompts, please refer to the [Prompt Configuration Guide](docs/PromptConfiguration.md).
 
 ### 5. Cleaning Up a Media File
 

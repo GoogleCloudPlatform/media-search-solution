@@ -37,67 +37,67 @@ const (
 type MediaAssembly struct {
 	cor.BaseCommand
 	summaryParam     string
-	sceneParam       string
+	segmentParam     string
 	mediaObjectParam string
 	mediaLengthParam string
 }
 
 // NewMediaAssembly default constructor for MediaAssembly
-func NewMediaAssembly(name string, summaryParam string, sceneParam string, mediaObjectParam string, mediaLengthParam string) *MediaAssembly {
+func NewMediaAssembly(name string, summaryParam string, segmentParam string, mediaObjectParam string, mediaLengthParam string) *MediaAssembly {
 	return &MediaAssembly{
 		BaseCommand:      *cor.NewBaseCommand(name),
 		summaryParam:     summaryParam,
-		sceneParam:       sceneParam,
+		segmentParam:     segmentParam,
 		mediaObjectParam: mediaObjectParam,
 		mediaLengthParam: mediaLengthParam,
 	}
 }
 
-// IsExecutable overrides the default to verify the summary param and scene param are in the context
+// IsExecutable overrides the default to verify the summary param and segment param are in the context
 func (m *MediaAssembly) IsExecutable(context cor.Context) bool {
 	return context != nil &&
 		context.Get(m.summaryParam) != nil &&
-		context.Get(m.sceneParam) != nil
+		context.Get(m.segmentParam) != nil
 }
 
 func (m *MediaAssembly) Execute(context cor.Context) {
 	summary := context.Get(m.summaryParam).(*model.MediaSummary)
-	jsonScenes := context.Get(m.sceneParam).([]string)
+	jsonSegments := context.Get(m.segmentParam).([]string)
 	mediaLengthInSeconds := context.Get(m.mediaLengthParam).(int)
-	sceneValues := fmt.Sprintf("[ %s ]", strings.Join(jsonScenes, ","))
+	segmentValues := fmt.Sprintf("[ %s ]", strings.Join(jsonSegments, ","))
 
-	scenes := make([]*model.Scene, 0)
-	sceneErr := json.Unmarshal([]byte(sceneValues), &scenes)
-	if sceneErr != nil {
+	segments := make([]*model.Segment, 0)
+	segmentErr := json.Unmarshal([]byte(segmentValues), &segments)
+	if segmentErr != nil {
 		m.GetErrorCounter().Add(context.GetContext(), 1)
-		context.AddError(m.GetName(), sceneErr)
+		context.AddError(m.GetName(), segmentErr)
 		return
 	}
 
-	if len(scenes) == 0 { // If no scenes were extracted, create a default scene with the summary.
-		defaultScene := &model.Scene{
+	if len(segments) == 0 { // If no segments were extracted, create a default segment with the summary.
+		defaultSegment := &model.Segment{
 			SequenceNumber: 0,
 			Start:          "00:00:00",
 			End:            formatSeconds(mediaLengthInSeconds),
 			Script:         summary.Summary,
 		}
-		scenes = append(scenes, defaultScene)
+		segments = append(segments, defaultSegment)
 	}
 
 	// Correct timestamps if they are out of bounds due to LLM mix-ups
-	for _, scene := range scenes {
-		scene.Start = correctTimestamp(scene.Start, mediaLengthInSeconds)
-		scene.End = correctTimestamp(scene.End, mediaLengthInSeconds)
+	for _, segment := range segments {
+		segment.Start = correctTimestamp(segment.Start, mediaLengthInSeconds)
+		segment.End = correctTimestamp(segment.End, mediaLengthInSeconds)
 	}
 
-	// Sort the scenes and sequence them
-	sort.Slice(scenes, func(i, j int) bool {
-		t, _ := time.Parse(DefaultMovieTimeFormat, scenes[i].Start)
-		tt, _ := time.Parse(DefaultMovieTimeFormat, scenes[j].Start)
+	// Sort the segments and sequence them
+	sort.Slice(segments, func(i, j int) bool {
+		t, _ := time.Parse(DefaultMovieTimeFormat, segments[i].Start)
+		tt, _ := time.Parse(DefaultMovieTimeFormat, segments[j].Start)
 		return t.Before(tt)
 	})
-	for i, scene := range scenes {
-		scene.SequenceNumber = i
+	for i, segment := range segments {
+		segment.SequenceNumber = i
 	}
 
 	// Call the constructor to ensure the UUID is generated
@@ -113,7 +113,7 @@ func (m *MediaAssembly) Execute(context cor.Context) {
 	media.Genre = summary.Genre
 	media.Rating = summary.Rating
 	media.Cast = append(media.Cast, summary.Cast...)
-	media.Scenes = append(media.Scenes, scenes...)
+	media.Segments = append(media.Segments, segments...)
 
 	m.GetSuccessCounter().Add(context.GetContext(), 1)
 

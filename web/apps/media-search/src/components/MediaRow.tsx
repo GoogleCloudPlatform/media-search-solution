@@ -15,8 +15,8 @@
 // Author: rrmcguinness (Ryan McGuinness)
 
 import {Box, Grid2, Typography} from "@mui/material";
-import SceneData from "./SceneData";
-import {MediaResult, Scene} from "../shared/model";
+import SegmentData from "./SegmentData";
+import {MediaResult, Segment} from "../shared/model";
 import Cast from "./Cast";
 
 const MediaRow = ({result}: { result: MediaResult }) => {
@@ -31,9 +31,9 @@ const MediaRow = ({result}: { result: MediaResult }) => {
                 <Cast cast={result.cast}/>
             </Grid2>
             <Grid2 size={8}>
-                {result.scenes.map((s: Scene, j:number) => (
+                {result.segments.map((s: Segment, j:number) => (
                     <Grid2 container spacing={2} sx={{p: 1, mb: 3}} key={`result_${result.id}_${j}`}>
-                        <SceneData key={`${result.id}-${s.sequence}`} url={result.media_url}  scene={s}/>
+                        <SegmentData key={`${result.id}-${s.sequence}`} url={result.media_url}  segment={s}/>
                     </Grid2>
                 ))}
             </Grid2>

@@ -55,14 +55,14 @@ type BigQueryDataSource struct {
 type PromptTemplates struct {
 	SystemInstructions string `toml:"system_instructions"` // The system instructions for the LLM.
 	SummaryPrompt      string `toml:"summary"`             // The template for generating summaries.
-	ScenePrompt        string `toml:"scene"`               // The template for generating scene descriptions.
+	SegmentPrompt      string `toml:"segment"`             // The template for generating segment descriptions.
 }
 
-// PromptTemplate holds the templates for generating summaries and scenes.
+// PromptTemplate holds the templates for generating summaries and segments.
 type PromptTemplate struct {
 	SystemInstructions string
 	SummaryPrompt      *template.Template
-	ScenePrompt        *template.Template
+	SegmentPrompt      *template.Template
 }
 
 // VertexAiEmbeddingModel represents the configuration for a Vertex AI embedding model.
@@ -103,7 +103,7 @@ type Category struct {
 	Definition         string `toml:"definition"`
 	SystemInstructions string `toml:"system_instructions"`
 	Summary            string `toml:"summary"`
-	Scene              string `toml:"scene"`
+	Segment            string `toml:"segment"`
 }
 
 type ContentType struct {

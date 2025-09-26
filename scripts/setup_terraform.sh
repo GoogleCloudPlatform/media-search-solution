@@ -118,7 +118,8 @@ for role in "${SERVICE_AGENT_ROLES[@]}"; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$SERVICE_AGENT" \
     --role="$role" \
-    --quiet
+    --quiet \
+    --condition=None
 done
 echo "Service Agent IAM roles assigned."
 echo

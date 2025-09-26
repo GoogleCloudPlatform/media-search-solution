@@ -53,14 +53,14 @@ func GetTemplateByMediaType(config *Config) map[string]*PromptTemplate {
 		if err != nil {
 			panic(err)
 		}
-		sceneTemplate, err := template.New("scene-template").Parse(config.PromptTemplates[mediaType].ScenePrompt)
+		segmentTemplate, err := template.New("segment-template").Parse(config.PromptTemplates[mediaType].SegmentPrompt)
 		if err != nil {
 			panic(err)
 		}
 		templateByMediaType[mediaType] = &PromptTemplate{
 			SystemInstructions: systemInstruction,
 			SummaryPrompt:      summaryTemplate,
-			ScenePrompt:        sceneTemplate,
+			SegmentPrompt:      segmentTemplate,
 		}
 	}
 	return templateByMediaType
