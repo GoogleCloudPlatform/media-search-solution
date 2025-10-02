@@ -72,6 +72,7 @@ Once the project is set up, the identity deploying the Infrastructure-as-Code (I
 *   **Project IAM Admin** (`roles/resourcemanager.projectIamAdmin`): To grant project-level permissions to the newly created service accounts.
 *   **Cloud Build Builder** (`roles/cloudbuild.builds.builder`): To run the build job that creates the container image.
 *   **Cloud Run Admin** (`roles/run.admin`): To deploy the application to Cloud Run.
+*   **IAP Policy Admin** (`roles/iap.admin`): To grant access to Application's web interface.
 
 ### Create infrastructure resources on Google Cloud
 1. **Set up your environment.** To deploy the solution, you can use [Cloud Shell](https://shell.cloud.google.com/?show=ide%2Cterminal), which comes pre-installed with the necessary tools. Alternatively, if you prefer a local terminal, ensure you have installed and configured the following:

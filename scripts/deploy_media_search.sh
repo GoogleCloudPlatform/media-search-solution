@@ -89,7 +89,8 @@ gcloud run deploy "$CLOUD_RUN_SERVICE_NAME" \
   --memory=8Gi \
   --no-cpu-throttling \
   --no-allow-unauthenticated \
-  --timeout=3600
+  --timeout=3600 \
+  --min 1
 
   # Create the IAP service agent
 gcloud beta services identity create \
