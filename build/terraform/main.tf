@@ -123,7 +123,6 @@ module "proxy_generator_container" {
       --service-account "projects/${var.project_id}/serviceAccounts/${module.cloud_build_account.email}"
   EOT
   enabled               = true
-  depends_on            = [google_artifact_registry_repository.docker-repo, module.cloud_build_account]
 }
 
 module "media_analysis_container" {
@@ -140,7 +139,6 @@ module "media_analysis_container" {
       --service-account "projects/${var.project_id}/serviceAccounts/${module.cloud_build_account.email}"
   EOT
   enabled               = true
-  depends_on            = [google_artifact_registry_repository.docker-repo, module.cloud_build_account]
 }
 
 module "media_search_service_account" {
@@ -171,7 +169,7 @@ module "workflows" {
   high_res_bucket                    = var.high_res_bucket
   media_search_service_account_email = module.media_search_service_account.email
   depends_on = [
-    module.proxy_generator_container,
-    module.media_analysis_container
+    module.proxy_generator_container.wait,
+    module.media_analysis_container.wait,
   ]
 }
