@@ -19,10 +19,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "common",
     srcs = [
-        "common.go",
         "basic_run_config.go",
         "basic_step_config.go",
         "command_step_config.go",
+        "common.go",
         "genai_run_config.go",
         "genai_step_config.go",
     ],
@@ -30,10 +30,10 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/cloud",
+        "@com_google_cloud_go_bigquery//:bigquery",
         "@com_google_cloud_go_storage//:storage",
         "@io_opentelemetry_go_otel//:otel",
         "@io_opentelemetry_go_otel_metric//:metric",
         "@org_golang_google_genai//:genai",
-         "@com_google_cloud_go_bigquery//:bigquery",
     ],
 )

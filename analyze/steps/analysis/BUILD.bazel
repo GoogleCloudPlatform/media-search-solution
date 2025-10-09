@@ -18,12 +18,12 @@ go_library(
     srcs = [
         "analyze_workflow.go",
         "content_type_step.go",
+        "generate_embeddings.go",
         "get_content_length.go",
         "get_content_summary.go",
-        "get_segment_summary.go",
         "get_segment_summaries.go",
+        "get_segment_summary.go",
         "persist.go",
-        "generate_embeddings.go",
     ],
     importpath = "github.com/GoogleCloudPlatform/media-search-solution/analyze/steps/analysis",
     visibility = ["//visibility:private"],
@@ -31,8 +31,8 @@ go_library(
         "//analyze/common",
         "//pkg/cloud",
         "//pkg/model",
-        "@org_golang_google_genai//:genai",
         "@org_golang_google_api//iterator",
+        "@org_golang_google_genai//:genai",
     ],
 )
 
