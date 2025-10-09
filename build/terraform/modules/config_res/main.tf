@@ -57,11 +57,11 @@ resource "google_storage_notification" "media_config_resource_notifications" {
   payload_format = "JSON_API_V1"
   topic          = google_pubsub_topic.media_config_update_events.id
   event_types    = ["OBJECT_FINALIZE"]
-  depends_on = [google_pubsub_topic_iam_binding.pubsub_invoker]
+  depends_on     = [google_pubsub_topic_iam_binding.pubsub_invoker]
 }
 
 resource "google_pubsub_topic_iam_binding" "pubsub_invoker" {
-  topic  = google_pubsub_topic.media_config_update_events.id
-  role   = "roles/pubsub.publisher"
+  topic   = google_pubsub_topic.media_config_update_events.id
+  role    = "roles/pubsub.publisher"
   members = ["serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"]
 }

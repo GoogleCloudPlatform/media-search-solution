@@ -80,6 +80,21 @@ module "config_resources" {
   config_bucket = var.config_bucket
 }
 
+resource "google_storage_bucket_object" "configuration_env_file" {
+  name         = ".env.toml"
+  source       = "${path.root}/../../configs/.env.toml"
+  content_type = "text/plain"
+  bucket       = module.config_resources.bucket_id
+}
+
+resource "google_storage_bucket_object" "configuration_env_local_file" {
+  name         = ".env.local.toml"
+  source       = local_file.deployment_configuration.filename
+  content_type = "text/plain"
+  bucket       = module.config_resources.bucket_id
+  depends_on   = [local_file.deployment_configuration]
+}
+
 module "cloud_build_account" {
   source     = "github.com/terraform-google-modules/terraform-google-service-accounts?ref=a11d4127eab9b51ec9c9afdaf51b902cd2c240d9" #commit hash of version 4.0.0
   names      = ["cloud-build"]
