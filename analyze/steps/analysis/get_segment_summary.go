@@ -1,0 +1,146 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/model"
+	"google.golang.org/genai"
+)
+
+const (
+	SEGMENT_SUMMARY_STEP_MODEL = "creative-flash"
+)
+
+func get_segment_summary(genaiRunConfig *common.GenaiRunConfig, mediaSummary *model.MediaSummary, contentType string, genaiContentCacheName string, segmentSequenceNumber int) (string, error) {
+	stepConfig, err := common.NewGenaiStepConfig(getSegmentSummaryStepKey(segmentSequenceNumber), genaiRunConfig, nil)
+	if err != nil {
+		return "", err
+	}
+
+	stepConfig.StepLogic = getSegmentSummaryLogicFunc(stepConfig, mediaSummary, contentType, genaiContentCacheName, segmentSequenceNumber)
+	return stepConfig.StepLogic()
+}
+
+func getSegmentSummaryLogicFunc(config *common.GenaiStepConfig, mediaSummary *model.MediaSummary, contentType string, genaiContentCacheName string, segmentSequenceNumber int) func() (string, error) {
+
+	return func() (string, error) {
+		prompt, err := generateSegmentSummaryPrompt(config, mediaSummary, contentType, segmentSequenceNumber)
+		if err != nil {
+			return "", err
+		}
+
+		segmentTimeSpan := mediaSummary.SegmentTimeStamps[segmentSequenceNumber]
+
+		startOffset, err := getTimeDurationFrom(segmentTimeSpan.Start)
+		if err != nil {
+			return "", fmt.Errorf("invalid start timestamp format for segment %d: %w", segmentSequenceNumber, err)
+		}
+		endOffset, err := getTimeDurationFrom(segmentTimeSpan.End)
+		if err != nil {
+			return "", fmt.Errorf("invalid end timestamp format for segment %d: %w", segmentSequenceNumber, err)
+		}
+
+		contents := []*genai.Content{
+			{Parts: []*genai.Part{
+				genai.NewPartFromText(prompt),
+				{
+					VideoMetadata: &genai.VideoMetadata{
+						StartOffset: startOffset,
+						EndOffset:   endOffset,
+					},
+				},
+			},
+				Role: "user"},
+		}
+
+		out, err := cloud.GenerateMultiModalResponse(
+			config.BasicRunConfig.Ctx,
+			config.Counters.InputCounter,
+			config.Counters.OutputCounter,
+			config.Counters.RetryCounter, 0,
+			config.GenaiRunConfig.AgentModels[SEGMENT_SUMMARY_STEP_MODEL],
+			"",
+			genaiContentCacheName,
+			contents,
+			model.NewSegmentExtractorSchema())
+		if err != nil {
+			return "", err
+		}
+		return out, nil
+	}
+}
+
+func getTimeDurationFrom(timestamp string) (time.Duration, error) {
+	parts := strings.Split(timestamp, ":")
+	var hours, minutes, seconds int
+	var err error
+
+	switch len(parts) {
+	case 2: // "mm:ss"
+		minutes, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, fmt.Errorf("invalid minutes: %w", err)
+		}
+		seconds, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, fmt.Errorf("invalid seconds: %w", err)
+		}
+	case 3: // "hh:mm:ss"
+		hours, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, fmt.Errorf("invalid hours: %w", err)
+		}
+		minutes, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, fmt.Errorf("invalid minutes: %w", err)
+		}
+		seconds, err = strconv.Atoi(parts[2])
+		if err != nil {
+			return 0, fmt.Errorf("invalid seconds: %w", err)
+		}
+	default:
+		return 0, fmt.Errorf("invalid time format: %s", timestamp)
+	}
+	totalDurationSeconds := hours*3600 + minutes*60 + seconds
+	duration := time.Duration(totalDurationSeconds) * time.Second
+	return duration, nil
+}
+
+// getSegmentSummaryStepKey generates the step key for a segment summary.
+// The segmentSequenceNumber is the 0-based index of the segment in the array,
+// but for storage and display purposes, it is converted to a 1-based index.
+func getSegmentSummaryStepKey(segmentSequenceNumber int) string {
+	return common.SEGMENT_SUMMARY_STEP_PREFIX + strconv.Itoa(segmentSequenceNumber+1)
+}
+
+func generateSegmentSummaryPrompt(config *common.GenaiStepConfig, mediaSummary *model.MediaSummary, contentType string, segmentSequanceNumber int) (string, error) {
+	template := config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SegmentPrompt
+	templateParams := make(map[string]string)
+	exampleSegment := model.GetExampleSegment()
+	exampleJson, _ := json.Marshal(exampleSegment)
+	exampleText := string(exampleJson)
+	castString := ""
+	for _, cast := range mediaSummary.Cast {
+		castString += fmt.Sprintf("%s - %s\n", cast.CharacterName, cast.ActorName)
+	}
+	timeSpan := mediaSummary.SegmentTimeStamps[segmentSequanceNumber]
+	summaryText := fmt.Sprintf("Title:%s\nSummary:\n\n%s\nCast:\n\n%v\n", mediaSummary.Title, mediaSummary.Summary, castString)
+	templateParams["SEQUENCE"] = fmt.Sprintf("%d", segmentSequanceNumber+1)
+	templateParams["SUMMARY_DOCUMENT"] = summaryText
+	templateParams["TIME_START"] = timeSpan.Start
+	templateParams["TIME_END"] = timeSpan.End
+	templateParams["EXAMPLE_JSON"] = exampleText
+
+	var doc bytes.Buffer
+	if err := template.Execute(&doc, templateParams); err != nil {
+		return "", err
+	}
+	return doc.String(), nil
+}

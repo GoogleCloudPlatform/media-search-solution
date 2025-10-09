@@ -15,10 +15,10 @@
 // Author:  rrmcguinness (Ryan McGuinness)
 
 variable "region" {
-    type = string
-    description = "Project Default Region"
+  type        = string
+  description = "Project Default Region"
 }
 variable "low_res_bucket" {
-    type = string
-    description = "The name of the low resolution media bucket"
+  type        = string
+  description = "The name of the low resolution media bucket"
 }

@@ -20,28 +20,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "commands",
     srcs = [
-        "ffmpeg.go",
-        "media_assembly.go",
         "media_config_update.go",
-        "media_content_type.go",
-        "media_length.go",
-        "media_persist_to_big_query.go",
-        "media_summary_creator.go",
-        "media_summary_json_to_struct.go",
         "media_trigger_reader.go",
-        "segment_extractor.go",
     ],
     importpath = "github.com/GoogleCloudPlatform/media-search-solution/pkg/commands",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/cloud",
         "//pkg/cor",
-        "//pkg/model",
-        "@com_google_cloud_go_bigquery//:bigquery",
-        "@io_opentelemetry_go_otel//attribute",
-        "@io_opentelemetry_go_otel//codes",
-        "@io_opentelemetry_go_otel_metric//:metric",
-        "@io_opentelemetry_go_otel_trace//:trace",
-        "@org_golang_google_genai//:genai",
     ],
 )

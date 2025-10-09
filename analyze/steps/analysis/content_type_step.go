@@ -1,0 +1,90 @@
+package main
+
+import (
+	"bytes"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
+	"google.golang.org/genai"
+)
+
+const (
+	CONTENT_TYPE_STEP_MODEL            = "creative-flash"
+	CONTENT_TYPE_ANALYSIS_START_OFFSET = time.Duration(0 * time.Second)
+	CONTENT_TYPE_ANALYSIS_END_OFFSET   = time.Duration(30 * time.Second)
+)
+
+func get_content_type(genaiRunConfig *common.GenaiRunConfig) {
+	stepConfig, err := common.NewGenaiStepConfig(common.CONTENT_TYPE_STEP, genaiRunConfig, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stepConfig.StepLogic = getContentTypLogicFunc(stepConfig)
+	stepConfig.RunStep()
+}
+
+func getContentTypLogicFunc(config *common.GenaiStepConfig) func() (string, error) {
+	return func() (string, error) {
+
+		params := make(map[string]interface{})
+		params["CONTENT_TYPES"] = strings.Join(config.GenaiRunConfig.CloudConfig.ContentType.Types, "\n")
+
+		var buffer bytes.Buffer
+		if err := config.GenaiRunConfig.TemplateService.GetContentTypeTemplate().Execute(&buffer, params); err != nil {
+			return "", err
+		}
+
+		genaiContentCache, err := config.GenaiRunConfig.GetGenaiContentCache(
+			CONTENT_TYPE_STEP_MODEL,
+			"content-type",
+			config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL].GenerativeContentConfig.SystemInstruction)
+		if err != nil {
+			return "", err
+		}
+
+		contents := []*genai.Content{
+			{Parts: []*genai.Part{
+				genai.NewPartFromText(buffer.String()),
+				{
+					VideoMetadata: &genai.VideoMetadata{
+						StartOffset: CONTENT_TYPE_ANALYSIS_START_OFFSET,
+						EndOffset:   CONTENT_TYPE_ANALYSIS_END_OFFSET,
+					},
+				},
+			},
+				Role: "user"},
+		}
+		out, err := cloud.GenerateMultiModalResponse(
+			config.GenaiRunConfig.Ctx,
+			config.Counters.InputCounter,
+			config.Counters.OutputCounter,
+			config.Counters.RetryCounter, 0,
+			config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL],
+			"",
+			genaiContentCache.Name, contents, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		out = strings.TrimSpace(out)
+
+		valid := false
+		for _, value := range config.GenaiRunConfig.CloudConfig.ContentType.Types {
+			if strings.Contains(strings.ToLower(out), strings.ToLower(value)) {
+				out = value
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			log.Printf("LLM returned an invalid content type '%s', defaulting to '%s'", out, config.GenaiRunConfig.CloudConfig.ContentType.DefaultType)
+			out = config.GenaiRunConfig.CloudConfig.ContentType.DefaultType
+		}
+		return out, nil
+
+	}
+}

@@ -15,26 +15,34 @@
 // Author: kingman (Charlie Wang)
 
 variable "project_id" {
-  type    = string
-}
-
-variable "trigger_bucket" {
   type = string
 }
 
 variable "region" {
-  type    = string
+  type = string
 }
 
 variable "proxy_generator_container" {
-  type    = string
+  type = string
+}
+
+variable "media_analysis_container" {
+  type = string
 }
 
 variable "low_res_bucket" {
-  type    = string
+  type = string
+}
+
+variable "config_bucket" {
+  type = string
+}
+
+variable "high_res_bucket" {
+  type = string
 }
 
 
 variable "media_search_service_account_email" {
-  type    = string
+  type = string
 }

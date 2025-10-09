@@ -27,9 +27,6 @@ go_test(
     size = "large",
     srcs = [
         "base_test.go",
-        "media_embedding_test.go",
-        "media_ingestion_test.go",
-        "media_resize_test.go",
     ],
     data = DATA_DEPS,
     rundir = ".",

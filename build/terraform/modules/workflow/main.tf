@@ -22,16 +22,16 @@ resource "google_project_iam_member" "pubsubpublisher" {
 }
 
 resource "google_cloud_run_v2_job" "generate_proxy_job" {
-  name        = "generate-proxy-job"
-  location    = var.region
-  project     = var.project_id
+  name     = "generate-proxy-job"
+  location = var.region
+  project  = var.project_id
   template {
     template {
       volumes {
         name = "high-res-bucket"
         gcs {
-          bucket = var.trigger_bucket
-          read_only   = true
+          bucket    = var.high_res_bucket
+          read_only = true
         }
       }
       volumes {
@@ -43,11 +43,11 @@ resource "google_cloud_run_v2_job" "generate_proxy_job" {
       containers {
         image = var.proxy_generator_container
         volume_mounts {
-          name      = "high-res-bucket"
-          mount_path = "/mnt/${var.trigger_bucket}"
+          name       = "high-res-bucket"
+          mount_path = "/mnt/${var.high_res_bucket}"
         }
         volume_mounts {
-          name      = "low-res-bucket"
+          name       = "low-res-bucket"
           mount_path = "/mnt/${var.low_res_bucket}"
         }
         env {
@@ -56,16 +56,17 @@ resource "google_cloud_run_v2_job" "generate_proxy_job" {
         }
       }
       service_account = var.media_search_service_account_email
+      timeout         = "3600s"
     }
   }
 }
 
 resource "google_workflows_workflow" "proxy_workflow" {
-  name = "proxy-generation-workflow"
-  region = var.region
-  description = "Workflow to trigger Cloud Run Job for proxy generation"
+  name            = "proxy-generation-workflow"
+  region          = var.region
+  description     = "Workflow to trigger Cloud Run Job for proxy generation"
   service_account = module.workflows_service_account.email
-  
+
 
   source_contents = <<EOF
   main:
@@ -103,12 +104,104 @@ resource "google_eventarc_trigger" "proxy_workflow_trigger" {
 
   matching_criteria {
     attribute = "bucket"
-    value     = var.trigger_bucket
+    value     = var.high_res_bucket
   }
 
   service_account = module.workflows_service_account.email
 
   destination {
     workflow = google_workflows_workflow.proxy_workflow.id
+  }
+}
+
+resource "google_cloud_run_v2_job" "media_analysis_job" {
+  name     = "media-analysis-job"
+  location = var.region
+  project  = var.project_id
+  template {
+    template {
+      volumes {
+        name = "low-res-bucket"
+        gcs {
+          bucket = var.low_res_bucket
+        }
+      }
+      volumes {
+        name = "config-bucket"
+        gcs {
+          bucket = var.config_bucket
+        }
+      }
+      containers {
+        image = var.media_analysis_container
+        volume_mounts {
+          name       = "low-res-bucket"
+          mount_path = "/mnt/${var.low_res_bucket}"
+        }
+        volume_mounts {
+          name       = "config-bucket"
+          mount_path = "/mnt/${var.config_bucket}"
+        }
+        env {
+          name  = "GCP_CONFIG_PREFIX"
+          value = "/mnt/${var.config_bucket}"
+        }
+      }
+      service_account = var.media_search_service_account_email
+      timeout         = "3600s"
     }
   }
+}
+
+resource "google_workflows_workflow" "analyze_workflow" {
+  name            = "analyze-workflow"
+  region          = var.region
+  description     = "Workflow to trigger Cloud Run Job for analyze the media content"
+  service_account = module.workflows_service_account.email
+
+
+  source_contents = <<EOF
+  main:
+    params: [event]
+    steps:
+      - init:
+          assign:
+            - input_file: $${event.data.bucket + "/" + event.data.name}
+      - run_job:
+          call: googleapis.run.v1.namespaces.jobs.run
+          args:
+              name: "namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.media_analysis_job.name}"
+              location: ${var.region}
+              body:
+                  overrides:
+                      containerOverrides:
+                          env:
+                              - name: "INPUT_FILE"
+                                value: $${input_file}
+          result: job_execution
+      - finish:
+          return: $${job_execution}
+  EOF
+}
+
+resource "google_eventarc_trigger" "analyze_workflow_trigger" {
+  name     = "analyze-workflow-trigger"
+  location = var.region
+  project  = var.project_id
+
+  matching_criteria {
+    attribute = "type"
+    value     = "google.cloud.storage.object.v1.finalized"
+  }
+
+  matching_criteria {
+    attribute = "bucket"
+    value     = var.low_res_bucket
+  }
+
+  service_account = module.workflows_service_account.email
+
+  destination {
+    workflow = google_workflows_workflow.analyze_workflow.id
+  }
+}

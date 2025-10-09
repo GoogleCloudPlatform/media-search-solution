@@ -78,10 +78,6 @@ gcloud run deploy "$CLOUD_RUN_SERVICE_NAME" \
   --region "$CLOUD_RUN_REGION" \
   --image "$CONTAINER_IMAGE_URI" \
   --service-account "$SERVICE_ACCOUNT_EMAIL" \
-  --add-volume name=high-res-bucket,type=cloud-storage,bucket="$HIGH_RES_BUCKET" \
-  --add-volume-mount volume=high-res-bucket,mount-path=/mnt/"$HIGH_RES_BUCKET" \
-  --add-volume name=low-res-bucket,type=cloud-storage,bucket="$LOW_RES_BUCKET" \
-  --add-volume-mount volume=low-res-bucket,mount-path=/mnt/"$LOW_RES_BUCKET" \
   --add-volume name=config-bucket,type=cloud-storage,bucket="$CONFIG_BUCKET" \
   --add-volume-mount volume=config-bucket,mount-path=/mnt/"$CONFIG_BUCKET" \
   --set-env-vars GCP_CONFIG_PREFIX=/mnt/"$CONFIG_BUCKET" \
@@ -89,8 +85,7 @@ gcloud run deploy "$CLOUD_RUN_SERVICE_NAME" \
   --memory=8Gi \
   --no-cpu-throttling \
   --no-allow-unauthenticated \
-  --timeout=3600 \
-  --min 1
+  --timeout=3600
 
   # Create the IAP service agent
 gcloud beta services identity create \

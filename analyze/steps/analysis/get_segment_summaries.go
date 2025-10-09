@@ -1,0 +1,146 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"sync"
+
+	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/model"
+	"google.golang.org/genai"
+)
+
+func get_segment_summaries(genaiRunConfig *common.GenaiRunConfig) {
+	stepConfig, err := common.NewGenaiStepConfig(common.SEGMENT_SUMMARY_STEP_PREFIX+"all", genaiRunConfig, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stepConfig.StepLogic = getSegmentSummariesLogicFunc(stepConfig)
+	stepConfig.RunStep()
+}
+
+func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string, error) {
+	return func() (string, error) {
+		contentSummaryStatus := config.BasicRunConfig.GetStepStatusByKey(common.CONTENT_SUMMARY_STEP)
+		if contentSummaryStatus != nil && contentSummaryStatus.Status != common.StepCompleted {
+			return "", fmt.Errorf("content summary step not completed for file %s/%s", config.BasicRunConfig.InputBucket, config.BasicRunConfig.InputFile)
+		}
+
+		contentSummaryObj := &model.MediaSummary{}
+		if err := json.Unmarshal([]byte(contentSummaryStatus.Output), &contentSummaryObj); err != nil {
+			return "", err
+		}
+		segmentSummaryInputParameter := []string{
+			common.CONTENT_TYPE_STEP,
+		}
+		segmentSummaryInputValues := config.BasicRunConfig.GetStepsOutput(segmentSummaryInputParameter)
+		genaiContentCacheName, err := getSegmentSummaryContentCacheName(config, segmentSummaryInputValues[common.CONTENT_TYPE_STEP])
+		if err != nil {
+			return "", err
+		}
+
+		type result struct {
+			stepKey string
+			output  string
+			err     error
+		}
+
+		// 1. Get the status of all segment summary steps in a single GCS read
+		allSegmentStepKeys := make([]string, len(contentSummaryObj.SegmentTimeStamps))
+		for i := range contentSummaryObj.SegmentTimeStamps {
+			allSegmentStepKeys[i] = getSegmentSummaryStepKey(i)
+		}
+		existingStatuses := config.BasicRunConfig.GetStepsStatus(allSegmentStepKeys)
+
+		// 2. Filter out segments that are already completed
+		var segmentsToProcess []int
+		for i := range contentSummaryObj.SegmentTimeStamps {
+			stepKey := getSegmentSummaryStepKey(i)
+			if status, ok := existingStatuses[stepKey]; !ok || status != common.StepCompleted {
+				segmentsToProcess = append(segmentsToProcess, i)
+			}
+		}
+
+		// 3. Run the summary generation for the remaining segments in parallel
+		resultsChan := make(chan result, len(segmentsToProcess))
+		var wg sync.WaitGroup
+
+		const maxConcurrent = 10
+		semaphore := make(chan struct{}, maxConcurrent)
+
+		for _, segmentIndex := range segmentsToProcess {
+			wg.Add(1)
+			semaphore <- struct{}{} // Acquire a slot
+
+			go func(segmentIndex int) {
+				defer func() {
+					<-semaphore // Release the slot
+					wg.Done()
+				}()
+				stepKey := getSegmentSummaryStepKey(segmentIndex)
+				log.Printf("Generating summary for segment %d", segmentIndex+1)
+				output, err := get_segment_summary(config.GenaiRunConfig, contentSummaryObj, segmentSummaryInputValues[common.CONTENT_TYPE_STEP], genaiContentCacheName, segmentIndex)
+				resultsChan <- result{stepKey: stepKey, output: output, err: err}
+			}(segmentIndex)
+		}
+		wg.Wait()
+		close(resultsChan)
+
+		// 4. Perform a single batched metadata update for the newly completed segments
+		metadataUpdate := make(map[string]string)
+		for res := range resultsChan {
+			if res.err != nil {
+				log.Printf("Error in segment summary for step %s: %v", res.stepKey, res.err)
+				continue
+			}
+			status := common.StepStatus{
+				Output: res.output,
+				Status: common.StepCompleted,
+			}
+			statusBytes, err := json.Marshal(status)
+			if err != nil {
+				log.Printf("Segment summary step: %s did not return valid result", res.stepKey)
+				continue
+			}
+			metadataUpdate[res.stepKey] = string(statusBytes)
+		}
+		if len(metadataUpdate) > 0 {
+			config.UpdateGCSObjectMetadata(metadataUpdate)
+		}
+
+		segmentSummaryStepKeys := make([]string, len(contentSummaryObj.SegmentTimeStamps))
+		for i := range contentSummaryObj.SegmentTimeStamps {
+			segmentSummaryStepKeys[i] = getSegmentSummaryStepKey(i)
+		}
+
+		segmentSummaryStepsStatus := config.BasicRunConfig.GetStepsStatus(segmentSummaryStepKeys)
+
+		for i := range contentSummaryObj.SegmentTimeStamps {
+			stepKey := getSegmentSummaryStepKey(i)
+			status, ok := segmentSummaryStepsStatus[stepKey]
+			if !ok {
+				return "", fmt.Errorf("segment summary step %s not found", stepKey)
+			}
+			if status != common.StepCompleted {
+				return "", fmt.Errorf("segment summary step %s not completed", stepKey)
+			}
+		}
+
+		return fmt.Sprintf("summary generated for %d segments", len(contentSummaryObj.SegmentTimeStamps)), nil
+	}
+}
+
+func getSegmentSummaryContentCacheName(config *common.GenaiStepConfig, contentType string) (string, error) {
+	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
+	genaiContentCache, err := config.GenaiRunConfig.GetGenaiContentCache(
+		SEGMENT_SUMMARY_STEP_MODEL,
+		contentType,
+		systemInstructions,
+	)
+	if err != nil {
+		return "", err
+	}
+	return genaiContentCache.Name, nil
+}

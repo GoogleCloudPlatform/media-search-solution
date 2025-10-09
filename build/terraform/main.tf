@@ -35,7 +35,9 @@ provider "google" {
 }
 
 locals {
-  solution_prefix = "media-search"
+  solution_prefix                = "media-search"
+  media_analysis_container_name  = "media-analysis"
+  proxy_generator_container_name = "proxy-generator"
 }
 
 resource "google_artifact_registry_repository" "docker-repo" {
@@ -116,7 +118,24 @@ module "proxy_generator_container" {
       --project ${var.project_id} \
       --region ${var.region} \
       --config "${path.module}/../../cloudbuild.yaml" \
-      --substitutions=_REGION=${var.region},_DOCKER_REPO=${google_artifact_registry_repository.docker-repo.name},_DOCKER_FILE=analyze/steps/proxy/Dockerfile,_CONTAINER_NAME=proxy-generator \
+      --substitutions=_REGION=${var.region},_DOCKER_REPO=${google_artifact_registry_repository.docker-repo.name},_DOCKER_FILE=analyze/steps/proxy/Dockerfile,_CONTAINER_NAME=${local.proxy_generator_container_name} \
+      --default-buckets-behavior regional-user-owned-bucket \
+      --service-account "projects/${var.project_id}/serviceAccounts/${module.cloud_build_account.email}"
+  EOT
+  enabled               = true
+  depends_on            = [google_artifact_registry_repository.docker-repo, module.cloud_build_account]
+}
+
+module "media_analysis_container" {
+  source = "github.com/terraform-google-modules/terraform-google-gcloud?ref=db25ab9c0e9f2034e45b0034f8edb473dde3e4ff" # commit hash of version 3.5.0
+
+  create_cmd_entrypoint = "gcloud"
+  create_cmd_body       = <<-EOT
+    builds submit "${path.module}/../.." \
+      --project ${var.project_id} \
+      --region ${var.region} \
+      --config "${path.module}/../../cloudbuild.yaml" \
+      --substitutions=_REGION=${var.region},_DOCKER_REPO=${google_artifact_registry_repository.docker-repo.name},_DOCKER_FILE=analyze/steps/analysis/Dockerfile,_CONTAINER_NAME=${local.media_analysis_container_name} \
       --default-buckets-behavior regional-user-owned-bucket \
       --service-account "projects/${var.project_id}/serviceAccounts/${module.cloud_build_account.email}"
   EOT
@@ -142,11 +161,17 @@ module "media_search_service_account" {
 }
 
 module "workflows" {
-  source                           = "./modules/workflow"
-  project_id                       = var.project_id
-  region                           = var.region
-  trigger_bucket                   = var.high_res_bucket
-  proxy_generator_container        = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker-repo.name}/proxy-generator"
-  low_res_bucket                   = var.low_res_bucket
+  source                             = "./modules/workflow"
+  project_id                         = var.project_id
+  region                             = var.region
+  proxy_generator_container          = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker-repo.name}/${local.proxy_generator_container_name}"
+  media_analysis_container           = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker-repo.name}/${local.media_analysis_container_name}"
+  low_res_bucket                     = var.low_res_bucket
+  config_bucket                      = var.config_bucket
+  high_res_bucket                    = var.high_res_bucket
   media_search_service_account_email = module.media_search_service_account.email
+  depends_on = [
+    module.proxy_generator_container,
+    module.media_analysis_container
+  ]
 }

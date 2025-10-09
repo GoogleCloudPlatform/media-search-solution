@@ -19,6 +19,7 @@ go_library(
     srcs = ["generate_proxy.go"],
     importpath = "github.com/GoogleCloudPlatform/media-search-solution/analyze/steps/proxy",
     visibility = ["//visibility:private"],
+    deps = ["//analyze/common"],
 )
 
 go_binary(

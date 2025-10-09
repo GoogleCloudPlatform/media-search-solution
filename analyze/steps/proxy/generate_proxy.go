@@ -8,107 +8,79 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
+
+	common "github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
 )
 
 const (
-	DefaultFfmpegArgs = "-analyzeduration 0 -probesize 5000000 -y -hide_banner -i %s -filter:v scale=w=%s:h=trunc(ow/a/2)*2 -f mp4 %s"
-	TempFilePrefix    = "ffmpeg-output-"
-	CommandSeparator  = " "
-	FileCheckRetries  = 2
-	FileCheckDelay    = 2 * time.Second
+	DefaultArgsStringTemplate = "-analyzeduration 0 -probesize 5000000 -y -hide_banner -i %s -filter:v scale=w=%s:h=trunc(ow/a/2)*2 -f mp4 %s"
+	TempFilePrefix            = "ffmpeg-output-"
 )
 
-type RunConfig struct {
-	InputFile    string
-	MountPoint   string
+type ProxyCommandConfig struct {
+	common.CommandStepConfig
 	OutputFolder string
 	TargetWidth  string
-	CommandPath  string
 	OutputFormat string
 }
 
-func main() {
-	config, err := loadRunConfig()
-	if err != nil {
-		log.Fatal(err)
+func NewProxyCommandConfig(basicRunConfig *common.BasicRunConfig, stepKey, commandPath, argsStringTemplate, outputFolder, targetWidth, outputFormat string) *ProxyCommandConfig {
+	commandStepConfig := common.NewCommandStepConfig(basicRunConfig, stepKey, commandPath, argsStringTemplate, nil)
+	config := &ProxyCommandConfig{
+		CommandStepConfig: *commandStepConfig,
+		OutputFolder:      outputFolder,
+		TargetWidth:       targetWidth,
+		OutputFormat:      outputFormat,
 	}
+	commandStepConfig.CommandLogic = config.proxyStepLogic
+	return config
+}
 
-	inputFileFullPath := config.MountPoint + "/" + config.InputFile
-
-	for i := range FileCheckRetries {
-		if _, err = os.Stat(inputFileFullPath); err == nil {
-			break
-		}
-		log.Printf("waiting for file to appear: %s, attempt %d/%d", inputFileFullPath, i+1, FileCheckRetries)
-		time.Sleep(FileCheckDelay)
-	}
-
-	if err != nil {
-		log.Fatalf("input file %s not found after %d retries: %v", inputFileFullPath, FileCheckRetries, err)
-	}
-
+func (config *ProxyCommandConfig) proxyStepLogic(inputFileFullPath string) (string, error) {
 	file, err := os.Open(inputFileFullPath)
 	if err != nil {
 		log.Fatalf("error opening input file %s: %v", inputFileFullPath, err)
 	}
 	tempFile, _ := os.CreateTemp("", TempFilePrefix)
 
-	args := fmt.Sprintf(DefaultFfmpegArgs, file.Name(), config.TargetWidth, tempFile.Name())
-	cmd := exec.Command(config.CommandPath, strings.Split(args, CommandSeparator)...)
+	args := fmt.Sprintf(config.ArgsStringTemplate, file.Name(), config.TargetWidth, tempFile.Name())
+	cmd := exec.Command(config.CommandPath, strings.Split(args, common.CommandSeparator)...)
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		log.Fatalf("error running ffmpeg command: %v", err)
 	}
 
-	fileName := strings.SplitN(config.InputFile, "/", 2)[1]
-
-	outputName := fileName
-	if ext := filepath.Ext(fileName); ext != ".mp4" {
-		outputName = strings.TrimSuffix(outputName, ext) + ".mp4"
+	outputName := config.BasicRunConfig.InputFile
+	if ext := filepath.Ext(config.BasicRunConfig.InputFile); ext != config.OutputFormat {
+		outputName = strings.TrimSuffix(outputName, ext) + config.OutputFormat
 	}
 
-	outputFile := fmt.Sprintf("%s/%s/%s", config.MountPoint, config.OutputFolder, outputName)
+	outputFile := fmt.Sprintf("%s/%s/%s", config.BasicRunConfig.MountPoint, config.OutputFolder, outputName)
 
 	err = MoveFile(tempFile.Name(), outputFile)
 	if err != nil {
 		log.Fatalf("error moving file: %v", err)
 	}
 
+	return fmt.Sprintf("%s/%s", config.OutputFolder, outputName), nil
 }
 
-func loadRunConfig() (*RunConfig, error) {
-	inputFile := os.Getenv("INPUT_FILE")
-	if len(inputFile) == 0 {
-		return &RunConfig{}, fmt.Errorf("no input file specified")
-	}
+func main() {
+	commandPath := common.Getenv("COMMAND_PATH", "bin/ffmpeg")
+	outputFormat := common.Getenv("OUTPUT_FORMAT", ".mp4")
+	targetWidth := common.Getenv("OUTPUT_WIDTH", "240")
 	outputFolder := os.Getenv("OUTPUT_FOLDER")
 	if len(outputFolder) == 0 {
-		return &RunConfig{}, fmt.Errorf("no output folder specified")
+		log.Fatal("OUTPUT_FOLDER not specified")
 	}
-
-	mountPoint := getenv("MOUNT_POINT", "/mnt")
-	targetWidth := getenv("OUTPUT_WIDTH", "240")
-	commandPath := getenv("COMMAND_PATH", "bin/ffmpeg")
-	outputFormat := getenv("OUTPUT_FORMAT", "mp4")
-
-	return &RunConfig{
-		InputFile:    inputFile,
-		MountPoint:   mountPoint,
-		OutputFolder: outputFolder,
-		TargetWidth:  targetWidth,
-		CommandPath:  commandPath,
-		OutputFormat: outputFormat,
-	}, nil
-}
-
-func getenv(key, fallback string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		return fallback
+	basicRunConfig, err := common.NewBasicRunConfig()
+	if err != nil {
+		log.Fatal(err)
 	}
-	return value
+	config := NewProxyCommandConfig(basicRunConfig, common.GENERATE_PROXY_STEP, commandPath, DefaultArgsStringTemplate, outputFolder, targetWidth, outputFormat)
+
+	config.RunStep()
 }
 
 func MoveFile(sourcePath, destPath string) error {
