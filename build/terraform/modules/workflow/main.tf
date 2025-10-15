@@ -21,6 +21,11 @@ resource "google_project_iam_member" "pubsubpublisher" {
   member  = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
 }
 
+resource "time_sleep" "wait_for_iam_propagation" {
+  create_duration = "60s"
+  depends_on      = [google_project_iam_member.pubsubpublisher]
+}
+
 resource "google_cloud_run_v2_job" "generate_proxy_job" {
   name     = "generate-proxy-job"
   location = var.region
@@ -78,6 +83,8 @@ resource "google_workflows_workflow" "proxy_workflow" {
       - run_job:
           call: googleapis.run.v1.namespaces.jobs.run
           args:
+              connector_params:
+                  skip_polling: True
               name: "namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.generate_proxy_job.name}"
               location: ${var.region}
               body:
@@ -112,6 +119,7 @@ resource "google_eventarc_trigger" "proxy_workflow_trigger" {
   destination {
     workflow = google_workflows_workflow.proxy_workflow.id
   }
+  depends_on = [time_sleep.wait_for_iam_propagation]
 }
 
 resource "google_cloud_run_v2_job" "media_analysis_job" {
@@ -170,6 +178,8 @@ resource "google_workflows_workflow" "analyze_workflow" {
       - run_job:
           call: googleapis.run.v1.namespaces.jobs.run
           args:
+              connector_params:
+                  skip_polling: True
               name: "namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.media_analysis_job.name}"
               location: ${var.region}
               body:
@@ -204,4 +214,5 @@ resource "google_eventarc_trigger" "analyze_workflow_trigger" {
   destination {
     workflow = google_workflows_workflow.analyze_workflow.id
   }
+  depends_on = [time_sleep.wait_for_iam_propagation]
 }

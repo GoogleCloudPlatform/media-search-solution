@@ -134,7 +134,7 @@ EVENTARC_SERVICE_AGENT_ROLES=(
   "roles/storage.bucketViewer"
 )
 
-echo "Assigning IAM roles to the Vertex AI service agent..."
+echo "Assigning IAM roles to the Eventarc service agent..."
 for role in "${EVENTARC_SERVICE_AGENT_ROLES[@]}"; do
 
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
