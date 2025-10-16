@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/model"
@@ -84,6 +85,48 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 		resultsChan := make(chan result, len(segmentsToProcess))
 		var wg sync.WaitGroup
 
+		// Goroutine to collect results and update metadata in batches
+		var updateWg sync.WaitGroup
+		updateWg.Add(1)
+		go func() {
+			defer updateWg.Done()
+			const batchSize = 5
+			metadataUpdate := make(map[string]string)
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+
+			flush := func() {
+				if len(metadataUpdate) > 0 {
+					log.Printf("Persisting batch of %d segment summaries...", len(metadataUpdate))
+					if _, err := config.UpdateGCSObjectMetadata(metadataUpdate); err != nil {
+						log.Printf("Warning: failed to persist segment summary batch: %v", err)
+					}
+					metadataUpdate = make(map[string]string) // Clear after flushing
+				}
+			}
+
+			for {
+				select {
+				case res, ok := <-resultsChan:
+					if !ok { // Channel closed
+						flush()
+						return
+					}
+					if res.err == nil {
+						status := common.StepStatus{Output: res.output, Status: common.StepCompleted}
+						if statusBytes, err := json.Marshal(status); err == nil {
+							metadataUpdate[res.stepKey] = string(statusBytes)
+						}
+					}
+					if len(metadataUpdate) >= batchSize {
+						flush()
+					}
+				case <-ticker.C:
+					flush()
+				}
+			}
+		}()
+
 		const maxConcurrent = 10
 		semaphore := make(chan struct{}, maxConcurrent)
 
@@ -104,28 +147,7 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 		}
 		wg.Wait()
 		close(resultsChan)
-
-		// 4. Perform a single batched metadata update for the newly completed segments
-		metadataUpdate := make(map[string]string)
-		for res := range resultsChan {
-			if res.err != nil {
-				log.Printf("Error in segment summary for step %s: %v", res.stepKey, res.err)
-				continue
-			}
-			status := common.StepStatus{
-				Output: res.output,
-				Status: common.StepCompleted,
-			}
-			statusBytes, err := json.Marshal(status)
-			if err != nil {
-				log.Printf("Segment summary step: %s did not return valid result", res.stepKey)
-				continue
-			}
-			metadataUpdate[res.stepKey] = string(statusBytes)
-		}
-		if len(metadataUpdate) > 0 {
-			config.UpdateGCSObjectMetadata(metadataUpdate)
-		}
+		updateWg.Wait() // Wait for the final metadata update to complete
 
 		segmentSummaryStepKeys := make([]string, len(contentSummaryObj.SegmentTimeStamps))
 		for i := range contentSummaryObj.SegmentTimeStamps {
