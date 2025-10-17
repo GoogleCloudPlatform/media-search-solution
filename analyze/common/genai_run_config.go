@@ -96,30 +96,3 @@ func loadCloudConfig() (_ *cloud.Config, err error) {
 func (config *GenaiRunConfig) GetInputFileGCSURI() string {
 	return "gs://" + config.InputBucket + "/" + config.InputFile
 }
-
-func (config *GenaiRunConfig) GetGenaiContentCache(modelName string, stepCacheId string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
-	if config.GenAIContentCaches == nil {
-		config.GenAIContentCaches = make(map[string]*genai.CachedContent)
-	}
-	if cache, exists := config.GenAIContentCaches[stepCacheId]; exists {
-		return cache, nil
-	}
-	gcsFileLink := config.GetInputFileGCSURI()
-	contents := []*genai.Content{
-		{Parts: []*genai.Part{
-			genai.NewPartFromURI(gcsFileLink, GENAI_INPUT_FILE_TYPE),
-		},
-			Role: "user"},
-	}
-	model := config.AgentModels[modelName]
-	genaiContentCache, err := config.GenAIClient.Caches.Create(config.Ctx, model.ModelName, &genai.CreateCachedContentConfig{
-		Contents:          contents,
-		SystemInstruction: systemInstruction,
-	})
-	if err != nil {
-		return nil, err
-	}
-	config.GenAIContentCaches[stepCacheId] = genaiContentCache
-	return genaiContentCache, nil
-
-}

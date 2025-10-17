@@ -73,7 +73,7 @@ func getContentSummaryLogicFunc(config *common.GenaiStepConfig) func() (string, 
 				Role: "user"},
 		}
 		systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(inputValues[common.CONTENT_TYPE_STEP]).SystemInstructions, genai.RoleUser)
-		genaiContentCache, err := config.GenaiRunConfig.GetGenaiContentCache(
+		genaiContentCache, err := config.GetGenaiContentCache(
 			CONTENT_SUMMARY_STEP_MODEL,
 			inputValues[common.CONTENT_TYPE_STEP],
 			systemInstructions,

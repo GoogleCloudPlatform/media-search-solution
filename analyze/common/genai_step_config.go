@@ -17,7 +17,13 @@
 package common
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
 	"go.opentelemetry.io/otel/metric"
+	"google.golang.org/genai"
 )
 
 type GenAICounter struct {
@@ -47,4 +53,62 @@ func NewGenaiStepConfig(stepKey string, genaiRunConfig *GenaiRunConfig, stepLogi
 		GenaiRunConfig:  genaiRunConfig,
 		Counters:        counters,
 	}, nil
+}
+
+func getContentCacheMetaDataKey(modelName string, stepCacheId string) string {
+	return fmt.Sprintf("%s_%s_%s", "ims_genai_cache", modelName, stepCacheId)
+}
+
+func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, stepCacheId string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
+	cacheMetaDataKey := getContentCacheMetaDataKey(modelName, stepCacheId)
+
+	cacheStatus := config.BasicRunConfig.GetStepStatusByKey(cacheMetaDataKey)
+	if cacheStatus != nil && cacheStatus.Status == StepCompleted {
+
+		var cachedContent genai.CachedContent
+		if err := json.Unmarshal([]byte(cacheStatus.Output), &cachedContent); err == nil {
+			if cachedContent.ExpireTime.After(time.Now()) {
+				log.Printf("Reuse cache: %s", cachedContent.Name)
+				return &cachedContent, nil
+			}
+		}
+	}
+
+	gcsFileLink := config.GenaiRunConfig.GetInputFileGCSURI()
+	contents := []*genai.Content{
+		{Parts: []*genai.Part{
+			genai.NewPartFromURI(gcsFileLink, GENAI_INPUT_FILE_TYPE),
+		},
+			Role: "user"},
+	}
+	model := config.GenaiRunConfig.AgentModels[modelName]
+	genaiContentCache, err := config.GenaiRunConfig.GenAIClient.Caches.Create(config.BasicRunConfig.Ctx, model.ModelName, &genai.CreateCachedContentConfig{
+		Contents:          contents,
+		SystemInstruction: systemInstruction,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	contentCacheStr, err := json.Marshal(genaiContentCache)
+	if err != nil {
+		return nil, err
+	}
+	status := StepStatus{
+		Output: string(contentCacheStr),
+		Status: StepCompleted,
+	}
+	statusBytes, err := json.Marshal(status)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := config.UpdateGCSObjectMetadata(
+		map[string]string{
+			cacheMetaDataKey: string(statusBytes),
+		}); err != nil {
+		return nil, err
+	}
+
+	return genaiContentCache, nil
+
 }

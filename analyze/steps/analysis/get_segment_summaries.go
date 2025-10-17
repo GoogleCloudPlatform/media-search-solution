@@ -41,20 +41,17 @@ func get_segment_summaries(genaiRunConfig *common.GenaiRunConfig) {
 
 func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string, error) {
 	return func() (string, error) {
-		contentSummaryStatus := config.BasicRunConfig.GetStepStatusByKey(common.CONTENT_SUMMARY_STEP)
-		if contentSummaryStatus != nil && contentSummaryStatus.Status != common.StepCompleted {
-			return "", fmt.Errorf("content summary step not completed for file %s/%s", config.BasicRunConfig.InputBucket, config.BasicRunConfig.InputFile)
+		dependentSteps := []string{
+			common.CONTENT_TYPE_STEP,
+			common.CONTENT_SUMMARY_STEP,
 		}
+		inputValues := config.BasicRunConfig.GetStepsOutput(dependentSteps)
 
 		contentSummaryObj := &model.MediaSummary{}
-		if err := json.Unmarshal([]byte(contentSummaryStatus.Output), &contentSummaryObj); err != nil {
+		if err := json.Unmarshal([]byte(inputValues[common.CONTENT_SUMMARY_STEP]), &contentSummaryObj); err != nil {
 			return "", err
 		}
-		segmentSummaryInputParameter := []string{
-			common.CONTENT_TYPE_STEP,
-		}
-		segmentSummaryInputValues := config.BasicRunConfig.GetStepsOutput(segmentSummaryInputParameter)
-		genaiContentCacheName, err := getSegmentSummaryContentCacheName(config, segmentSummaryInputValues[common.CONTENT_TYPE_STEP])
+		genaiContentCacheName, err := getSegmentSummaryContentCacheName(config, inputValues[common.CONTENT_TYPE_STEP])
 		if err != nil {
 			return "", err
 		}
@@ -141,7 +138,7 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 				}()
 				stepKey := getSegmentSummaryStepKey(segmentIndex)
 				log.Printf("Generating summary for segment %d", segmentIndex+1)
-				output, err := get_segment_summary(config.GenaiRunConfig, contentSummaryObj, segmentSummaryInputValues[common.CONTENT_TYPE_STEP], genaiContentCacheName, segmentIndex)
+				output, err := get_segment_summary(config.GenaiRunConfig, contentSummaryObj, inputValues[common.CONTENT_TYPE_STEP], genaiContentCacheName, segmentIndex)
 				resultsChan <- result{stepKey: stepKey, output: output, err: err}
 			}(segmentIndex)
 		}
@@ -173,7 +170,7 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 
 func getSegmentSummaryContentCacheName(config *common.GenaiStepConfig, contentType string) (string, error) {
 	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
-	genaiContentCache, err := config.GenaiRunConfig.GetGenaiContentCache(
+	genaiContentCache, err := config.GetGenaiContentCache(
 		SEGMENT_SUMMARY_STEP_MODEL,
 		contentType,
 		systemInstructions,

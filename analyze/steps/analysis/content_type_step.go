@@ -55,7 +55,7 @@ func getContentTypLogicFunc(config *common.GenaiStepConfig) func() (string, erro
 			return "", err
 		}
 
-		genaiContentCache, err := config.GenaiRunConfig.GetGenaiContentCache(
+		genaiContentCache, err := config.GetGenaiContentCache(
 			CONTENT_TYPE_STEP_MODEL,
 			"content-type",
 			config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL].GenerativeContentConfig.SystemInstruction)
