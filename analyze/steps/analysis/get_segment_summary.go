@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
@@ -35,17 +34,17 @@ const (
 	SEGMENT_SUMMARY_STEP_MODEL = "creative-flash"
 )
 
-func get_segment_summary(genaiRunConfig *common.GenaiRunConfig, mediaSummary *model.MediaSummary, contentType string, genaiContentCacheName string, segmentSequenceNumber int) (string, error) {
+func get_segment_summary(genaiRunConfig *common.GenaiRunConfig, mediaSummary *model.MediaSummary, contentType string, segmentSequenceNumber int) (string, error) {
 	stepConfig, err := common.NewGenaiStepConfig(getSegmentSummaryStepKey(segmentSequenceNumber), genaiRunConfig, nil)
 	if err != nil {
 		return "", err
 	}
 
-	stepConfig.StepLogic = getSegmentSummaryLogicFunc(stepConfig, mediaSummary, contentType, genaiContentCacheName, segmentSequenceNumber)
+	stepConfig.StepLogic = getSegmentSummaryLogicFunc(stepConfig, mediaSummary, contentType, segmentSequenceNumber)
 	return stepConfig.StepLogic()
 }
 
-func getSegmentSummaryLogicFunc(config *common.GenaiStepConfig, mediaSummary *model.MediaSummary, contentType string, genaiContentCacheName string, segmentSequenceNumber int) func() (string, error) {
+func getSegmentSummaryLogicFunc(config *common.GenaiStepConfig, mediaSummary *model.MediaSummary, contentType string, segmentSequenceNumber int) func() (string, error) {
 
 	return func() (string, error) {
 		prompt, err := generateSegmentSummaryPrompt(config, mediaSummary, contentType, segmentSequenceNumber)
@@ -64,15 +63,14 @@ func getSegmentSummaryLogicFunc(config *common.GenaiStepConfig, mediaSummary *mo
 			return "", fmt.Errorf("invalid end timestamp format for segment %d: %w", segmentSequenceNumber, err)
 		}
 
+		genaiContentCacheName, err := getSegmentSummaryContentCacheName(config, contentType, startOffset, endOffset)
+		if err != nil {
+			return "", err
+		}
+
 		contents := []*genai.Content{
 			{Parts: []*genai.Part{
 				genai.NewPartFromText(prompt),
-				{
-					VideoMetadata: &genai.VideoMetadata{
-						StartOffset: startOffset,
-						EndOffset:   endOffset,
-					},
-				},
 			},
 				Role: "user"},
 		}
@@ -94,7 +92,22 @@ func getSegmentSummaryLogicFunc(config *common.GenaiStepConfig, mediaSummary *mo
 	}
 }
 
-func getTimeDurationFrom(timestamp string) (time.Duration, error) {
+func getSegmentSummaryContentCacheName(config *common.GenaiStepConfig, contentType string, startOffset int, endOffset int) (string, error) {
+	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
+	genaiContentCache, err := config.GetGenaiContentCacheWithChunk(
+		SEGMENT_SUMMARY_STEP_MODEL,
+		contentType,
+		systemInstructions,
+		startOffset,
+		endOffset,
+	)
+	if err != nil {
+		return "", err
+	}
+	return genaiContentCache.Name, nil
+}
+
+func getTimeDurationFrom(timestamp string) (int, error) {
 	parts := strings.Split(timestamp, ":")
 	var hours, minutes, seconds int
 	var err error
@@ -125,9 +138,8 @@ func getTimeDurationFrom(timestamp string) (time.Duration, error) {
 	default:
 		return 0, fmt.Errorf("invalid time format: %s", timestamp)
 	}
-	totalDurationSeconds := hours*3600 + minutes*60 + seconds
-	duration := time.Duration(totalDurationSeconds) * time.Second
-	return duration, nil
+	return hours*3600 + minutes*60 + seconds, nil
+
 }
 
 // getSegmentSummaryStepKey generates the step key for a segment summary.

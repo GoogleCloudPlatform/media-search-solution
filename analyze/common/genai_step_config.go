@@ -59,19 +59,94 @@ func getContentCacheMetaDataKey(modelName string, stepCacheId string) string {
 	return fmt.Sprintf("%s_%s_%s", "ims_genai_cache", modelName, stepCacheId)
 }
 
-func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, stepCacheId string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
-	cacheMetaDataKey := getContentCacheMetaDataKey(modelName, stepCacheId)
+func getContentCacheMetaDataKeyWithChunk(modelName string, stepCacheId string, startOffsetSec int, endOffsetSec int) string {
+	return fmt.Sprintf("%s_%s_%s_%d_%d", "ims_genai_cache", modelName, stepCacheId, startOffsetSec, endOffsetSec)
+}
 
+func (config *GenaiStepConfig) loadGenaiContentCacheFromMetadata(cacheMetaDataKey string) *genai.CachedContent {
 	cacheStatus := config.BasicRunConfig.GetStepStatusByKey(cacheMetaDataKey)
 	if cacheStatus != nil && cacheStatus.Status == StepCompleted {
-
 		var cachedContent genai.CachedContent
 		if err := json.Unmarshal([]byte(cacheStatus.Output), &cachedContent); err == nil {
 			if cachedContent.ExpireTime.After(time.Now()) {
 				log.Printf("Reuse cache: %s", cachedContent.Name)
-				return &cachedContent, nil
+				return &cachedContent
 			}
 		}
+	}
+	return nil
+}
+
+func (config *GenaiStepConfig) createGenaiContentCache(modelName string, contents []*genai.Content, systemInstruction *genai.Content) (*genai.CachedContent, error) {
+	model := config.GenaiRunConfig.AgentModels[modelName]
+	return config.GenaiRunConfig.GenAIClient.Caches.Create(config.BasicRunConfig.Ctx, model.ModelName, &genai.CreateCachedContentConfig{
+		Contents:          contents,
+		SystemInstruction: systemInstruction,
+	})
+}
+
+func (config *GenaiStepConfig) persistGenaiContentCache(cachedContent *genai.CachedContent, cacheMetaDataKey string) {
+	contentCacheStr, err := json.Marshal(cachedContent)
+	if err != nil {
+		return
+	}
+	status := StepStatus{
+		Output: string(contentCacheStr),
+		Status: StepCompleted,
+	}
+	statusBytes, err := json.Marshal(status)
+	if err != nil {
+		return
+	}
+	if _, err := config.UpdateGCSObjectMetadata(
+		map[string]string{
+			cacheMetaDataKey: string(statusBytes),
+		}); err != nil {
+		return
+	}
+}
+
+func (config *GenaiStepConfig) GetGenaiContentCacheWithChunk(modelName string, stepCacheId string, systemInstruction *genai.Content, startOffsetSec int, endOffsetSec int) (*genai.CachedContent, error) {
+	cacheMetaDataKey := getContentCacheMetaDataKeyWithChunk(modelName, stepCacheId, startOffsetSec, endOffsetSec)
+	cachedContent := config.loadGenaiContentCacheFromMetadata(cacheMetaDataKey)
+	if cachedContent != nil {
+		return cachedContent, nil
+	}
+
+	startOffset := time.Duration(startOffsetSec) * time.Second
+	endOffset := time.Duration(endOffsetSec) * time.Second
+
+	contents := []*genai.Content{
+		{Parts: []*genai.Part{
+			{
+				FileData: &genai.FileData{
+					FileURI:  config.GenaiRunConfig.GetInputFileGCSURI(),
+					MIMEType: GENAI_INPUT_FILE_TYPE,
+				},
+				VideoMetadata: &genai.VideoMetadata{
+					StartOffset: startOffset,
+					EndOffset:   endOffset,
+				},
+			},
+		},
+			Role: genai.RoleUser},
+	}
+
+	genaiContentCache, err := config.createGenaiContentCache(modelName, contents, systemInstruction)
+	if err != nil {
+		return nil, err
+	}
+
+	config.persistGenaiContentCache(genaiContentCache, cacheMetaDataKey)
+
+	return genaiContentCache, nil
+}
+
+func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, stepCacheId string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
+	cacheMetaDataKey := getContentCacheMetaDataKey(modelName, stepCacheId)
+	cachedContent := config.loadGenaiContentCacheFromMetadata(cacheMetaDataKey)
+	if cachedContent != nil {
+		return cachedContent, nil
 	}
 
 	gcsFileLink := config.GenaiRunConfig.GetInputFileGCSURI()
@@ -81,34 +156,13 @@ func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, stepCacheI
 		},
 			Role: "user"},
 	}
-	model := config.GenaiRunConfig.AgentModels[modelName]
-	genaiContentCache, err := config.GenaiRunConfig.GenAIClient.Caches.Create(config.BasicRunConfig.Ctx, model.ModelName, &genai.CreateCachedContentConfig{
-		Contents:          contents,
-		SystemInstruction: systemInstruction,
-	})
+
+	genaiContentCache, err := config.createGenaiContentCache(modelName, contents, systemInstruction)
 	if err != nil {
 		return nil, err
 	}
 
-	contentCacheStr, err := json.Marshal(genaiContentCache)
-	if err != nil {
-		return nil, err
-	}
-	status := StepStatus{
-		Output: string(contentCacheStr),
-		Status: StepCompleted,
-	}
-	statusBytes, err := json.Marshal(status)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := config.UpdateGCSObjectMetadata(
-		map[string]string{
-			cacheMetaDataKey: string(statusBytes),
-		}); err != nil {
-		return nil, err
-	}
+	config.persistGenaiContentCache(genaiContentCache, cacheMetaDataKey)
 
 	return genaiContentCache, nil
-
 }

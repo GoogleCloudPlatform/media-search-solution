@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
@@ -30,8 +29,8 @@ import (
 
 const (
 	CONTENT_TYPE_STEP_MODEL            = "creative-flash"
-	CONTENT_TYPE_ANALYSIS_START_OFFSET = time.Duration(0 * time.Second)
-	CONTENT_TYPE_ANALYSIS_END_OFFSET   = time.Duration(30 * time.Second)
+	CONTENT_TYPE_ANALYSIS_START_OFFSET = 0
+	CONTENT_TYPE_ANALYSIS_END_OFFSET   = 30
 )
 
 func get_content_type(genaiRunConfig *common.GenaiRunConfig) {
@@ -55,10 +54,13 @@ func getContentTypLogicFunc(config *common.GenaiStepConfig) func() (string, erro
 			return "", err
 		}
 
-		genaiContentCache, err := config.GetGenaiContentCache(
+		genaiContentCache, err := config.GetGenaiContentCacheWithChunk(
 			CONTENT_TYPE_STEP_MODEL,
 			"content-type",
-			config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL].GenerativeContentConfig.SystemInstruction)
+			config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL].GenerativeContentConfig.SystemInstruction,
+			CONTENT_TYPE_ANALYSIS_START_OFFSET,
+			CONTENT_TYPE_ANALYSIS_END_OFFSET,
+		)
 		if err != nil {
 			return "", err
 		}
@@ -66,12 +68,6 @@ func getContentTypLogicFunc(config *common.GenaiStepConfig) func() (string, erro
 		contents := []*genai.Content{
 			{Parts: []*genai.Part{
 				genai.NewPartFromText(buffer.String()),
-				{
-					VideoMetadata: &genai.VideoMetadata{
-						StartOffset: CONTENT_TYPE_ANALYSIS_START_OFFSET,
-						EndOffset:   CONTENT_TYPE_ANALYSIS_END_OFFSET,
-					},
-				},
 			},
 				Role: "user"},
 		}

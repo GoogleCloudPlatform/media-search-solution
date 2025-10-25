@@ -26,7 +26,6 @@ import (
 
 	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/model"
-	"google.golang.org/genai"
 )
 
 func get_segment_summaries(genaiRunConfig *common.GenaiRunConfig) {
@@ -49,10 +48,6 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 
 		contentSummaryObj := &model.MediaSummary{}
 		if err := json.Unmarshal([]byte(inputValues[common.CONTENT_SUMMARY_STEP]), &contentSummaryObj); err != nil {
-			return "", err
-		}
-		genaiContentCacheName, err := getSegmentSummaryContentCacheName(config, inputValues[common.CONTENT_TYPE_STEP])
-		if err != nil {
 			return "", err
 		}
 
@@ -138,7 +133,7 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 				}()
 				stepKey := getSegmentSummaryStepKey(segmentIndex)
 				log.Printf("Generating summary for segment %d", segmentIndex+1)
-				output, err := get_segment_summary(config.GenaiRunConfig, contentSummaryObj, inputValues[common.CONTENT_TYPE_STEP], genaiContentCacheName, segmentIndex)
+				output, err := get_segment_summary(config.GenaiRunConfig, contentSummaryObj, inputValues[common.CONTENT_TYPE_STEP], segmentIndex)
 				resultsChan <- result{stepKey: stepKey, output: output, err: err}
 			}(segmentIndex)
 		}
@@ -166,17 +161,4 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 
 		return fmt.Sprintf("summary generated for %d segments", len(contentSummaryObj.SegmentTimeStamps)), nil
 	}
-}
-
-func getSegmentSummaryContentCacheName(config *common.GenaiStepConfig, contentType string) (string, error) {
-	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
-	genaiContentCache, err := config.GetGenaiContentCache(
-		SEGMENT_SUMMARY_STEP_MODEL,
-		contentType,
-		systemInstructions,
-	)
-	if err != nil {
-		return "", err
-	}
-	return genaiContentCache.Name, nil
 }

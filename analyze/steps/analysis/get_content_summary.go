@@ -34,80 +34,300 @@ import (
 const (
 	CONTENT_SUMMARY_STEP_MODEL = "creative-flash"
 	maxRetries                 = 3
+	CHUNK_LENGTH_SEC           = 1200
 )
 
+type ContentSummaryConfigAPI interface {
+	getStepKey() string
+	getLength() int
+	getLengthStr() string
+	getContentType() string
+	isChunk() bool
+	getStartOffsetSec() int
+	getEndOffsetSec() int
+}
+
+type ContentSummaryConfig struct {
+	ContentLength int
+	ContentType   string
+}
+
+func (c ContentSummaryConfig) getStepKey() string {
+	return common.CONTENT_SUMMARY_STEP
+}
+
+func (c ContentSummaryConfig) getLength() int {
+	return c.ContentLength
+}
+
+func (c ContentSummaryConfig) getLengthStr() string {
+	return strconv.Itoa(c.ContentLength)
+}
+
+func (c ContentSummaryConfig) getContentType() string {
+	return c.ContentType
+}
+
+func (c ContentSummaryConfig) isChunk() bool {
+	return false
+}
+
+func (c ContentSummaryConfig) getStartOffsetSec() int {
+	return 0
+}
+
+func (c ContentSummaryConfig) getEndOffsetSec() int {
+	return c.ContentLength
+}
+
+type ChunkConfig struct {
+	ContentSummaryConfig
+	StartOffsetSec int
+	EndOffsetSec   int
+	ChunkIndex     int
+}
+
+func (c ChunkConfig) getStartOffsetSec() int {
+	return c.StartOffsetSec
+}
+
+func (c ChunkConfig) getEndOffsetSec() int {
+	return c.EndOffsetSec
+}
+
+func (c ChunkConfig) getLength() int {
+	return c.EndOffsetSec - c.StartOffsetSec
+}
+
+func (c ChunkConfig) getLengthStr() string {
+	return strconv.Itoa(c.EndOffsetSec - c.StartOffsetSec)
+}
+
+func (c ChunkConfig) isChunk() bool {
+	return true
+}
+
+func (c ChunkConfig) getStepKey() string {
+	return fmt.Sprintf("%s_%d_%d", common.CONTENT_SUMMARY_STEP, c.StartOffsetSec, c.EndOffsetSec)
+}
+
+func (c ChunkConfig) convertChunkTimeStampToTimeStamp(chunkTimeStamp string) string {
+	chunkTimeStampSec, err := timeToSeconds(chunkTimeStamp)
+	if err != nil {
+		return ""
+	}
+	return convertIntSecondsToHHMMSS(chunkTimeStampSec + c.StartOffsetSec)
+
+}
+
 func get_content_summary(genaiRunConfig *common.GenaiRunConfig) {
-	stepConfig, err := common.NewGenaiStepConfig(common.CONTENT_SUMMARY_STEP, genaiRunConfig, nil)
+	contentSummaryConfig, err := getContentSummaryConfig(genaiRunConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if contentSummaryConfig.ContentLength > CHUNK_LENGTH_SEC {
+		chunkConfigs := make([]*ChunkConfig, 0)
+		numberOfChunks := contentSummaryConfig.ContentLength / CHUNK_LENGTH_SEC
+		if contentSummaryConfig.ContentLength%CHUNK_LENGTH_SEC > 0 {
+			numberOfChunks += 1
+		}
+		for chunkIndex := range numberOfChunks {
+			endSecOffSet := (chunkIndex + 1) * CHUNK_LENGTH_SEC
+			if endSecOffSet > contentSummaryConfig.ContentLength {
+				endSecOffSet = contentSummaryConfig.ContentLength
+			}
+			chunkConfig := &ChunkConfig{
+				ContentSummaryConfig: *contentSummaryConfig,
+				StartOffsetSec:       chunkIndex * CHUNK_LENGTH_SEC,
+				EndOffsetSec:         endSecOffSet,
+				ChunkIndex:           chunkIndex,
+			}
+			chunkConfigs = append(chunkConfigs, chunkConfig)
+			get_content_summary_dynamic(genaiRunConfig, chunkConfig)
+		}
+		consolidate_chunk_summaries(genaiRunConfig, chunkConfigs, contentSummaryConfig)
+
+	} else {
+		get_content_summary_dynamic(genaiRunConfig, contentSummaryConfig)
+	}
+}
+
+func consolidate_chunk_summaries(genaiRunConfig *common.GenaiRunConfig, chunkConfigs []*ChunkConfig, summaryConfig ContentSummaryConfigAPI) {
+	stepConfig, err := common.NewGenaiStepConfig(summaryConfig.getStepKey(), genaiRunConfig, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	stepConfig.StepLogic = getContentSummaryLogicFunc(stepConfig)
+	stepConfig.StepLogic = func() (string, error) {
+		return consolidateChunkSummaries(genaiRunConfig, chunkConfigs, summaryConfig)
+	}
+
 	stepConfig.RunStep()
 }
 
-func getContentSummaryLogicFunc(config *common.GenaiStepConfig) func() (string, error) {
+func get_content_summary_dynamic(genaiRunConfig *common.GenaiRunConfig, summaryConfig ContentSummaryConfigAPI) {
+	stepConfig, err := common.NewGenaiStepConfig(summaryConfig.getStepKey(), genaiRunConfig, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stepConfig.StepLogic = getContentSummaryLogicFunc(stepConfig, summaryConfig)
+	stepConfig.RunStep()
+}
+
+func getContentSummaryConfig(genaiRunConfig *common.GenaiRunConfig) (*ContentSummaryConfig, error) {
+	inputParameter := []string{
+		common.CONTENT_LENGTH_STEP,
+		common.CONTENT_TYPE_STEP,
+	}
+	inputValues := genaiRunConfig.BasicRunConfig.GetStepsOutput(inputParameter)
+	for _, stepKey := range inputParameter {
+		if _, ok := inputValues[stepKey]; !ok {
+			return nil, fmt.Errorf("missing required input from step: %s", stepKey)
+		}
+	}
+	videoLength := inputValues[common.CONTENT_LENGTH_STEP]
+	videoLengthSec, err := strconv.Atoi(videoLength)
+	if err != nil {
+		return nil, fmt.Errorf("invalid content length: %s", videoLength)
+	}
+
+	contentType := inputValues[common.CONTENT_TYPE_STEP]
+	return &ContentSummaryConfig{
+		ContentLength: videoLengthSec,
+		ContentType:   contentType,
+	}, nil
+}
+
+func getContentSummaryLogicFunc(config *common.GenaiStepConfig, summaryConfig ContentSummaryConfigAPI) func() (string, error) {
 	return func() (string, error) {
-		// Ensure that the required previous steps are completed
-		inputParameter := []string{
-			common.CONTENT_LENGTH_STEP,
-			common.CONTENT_TYPE_STEP,
-		}
-
-		inputValues := config.BasicRunConfig.GetStepsOutput(inputParameter)
-
-		for _, stepKey := range inputParameter {
-			if _, ok := inputValues[stepKey]; !ok {
-				return "", fmt.Errorf("missing required input from step: %s", stepKey)
-			}
-		}
-
-		prompt, err := generatePrompt(config, inputValues)
+		normalizedOutput, err := doSummaryGeneration(config, summaryConfig)
 		if err != nil {
 			return "", err
 		}
-		contents := []*genai.Content{
-			{Parts: []*genai.Part{
-				genai.NewPartFromText(prompt),
-			},
-				Role: "user"},
+		return normalizedOutput, nil
+	}
+}
+
+func consolidateChunkSummaries(config *common.GenaiRunConfig, chunkConfigs []*ChunkConfig, summaryConfig ContentSummaryConfigAPI) (string, error) {
+	chunkStepKeys := make([]string, len(chunkConfigs))
+
+	for i, chunkConfig := range chunkConfigs {
+		chunkStepKeys[i] = chunkConfig.getStepKey()
+	}
+
+	summaryPersistStrs := config.BasicRunConfig.GetStepsOutput(chunkStepKeys)
+	summaryObjs := make([]*model.MediaSummary, len(summaryPersistStrs))
+
+	consolidatedSegments := make([]*model.TimeSpan, 0)
+
+	for i, chunkConfig := range chunkConfigs {
+		summaryStr := summaryPersistStrs[chunkConfig.getStepKey()]
+		summaryObj := &model.MediaSummary{}
+		json.Unmarshal([]byte(summaryStr), summaryObj)
+		for _, segment := range summaryObj.SegmentTimeStamps {
+			startTime := chunkConfig.convertChunkTimeStampToTimeStamp(segment.Start)
+			endTime := chunkConfig.convertChunkTimeStampToTimeStamp(segment.End)
+			if startTime == "" || endTime == "" {
+				continue
+			}
+			segment.Start = startTime
+			segment.End = endTime
+			consolidatedSegments = append(consolidatedSegments, segment)
 		}
-		systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(inputValues[common.CONTENT_TYPE_STEP]).SystemInstructions, genai.RoleUser)
-		genaiContentCache, err := config.GetGenaiContentCache(
+		summaryObjs[i] = summaryObj
+	}
+
+	consolidatedSummary := &model.MediaSummary{}
+	consolidatedSummary.Title = summaryObjs[0].Title
+	consolidatedSummary.Category = summaryObjs[0].Category
+	consolidatedSummary.Summary = summaryObjs[0].Summary
+	consolidatedSummary.LengthInSeconds = summaryConfig.getLength()
+	consolidatedSummary.Director = summaryObjs[0].Director
+	consolidatedSummary.ReleaseYear = summaryObjs[0].ReleaseYear
+	consolidatedSummary.Genre = summaryObjs[0].Genre
+	consolidatedSummary.Rating = summaryObjs[0].Rating
+	consolidatedSummary.MediaUrl = summaryObjs[0].MediaUrl
+
+	casts := make([]*model.CastMember, 0)
+	for _, summaryObj := range summaryObjs {
+		casts = append(casts, summaryObj.Cast...)
+	}
+	consolidatedSummary.Cast = casts
+
+	consolidatedSummary.SegmentTimeStamps = consolidatedSegments
+	objBytes, err := json.Marshal(consolidatedSummary)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal consolidated content summary: %w", err)
+	}
+	return string(objBytes), nil
+}
+
+func doSummaryGeneration(config *common.GenaiStepConfig, summaryConfig ContentSummaryConfigAPI) (string, error) {
+	contentType := summaryConfig.getContentType()
+
+	prompt, err := generatePrompt(config, summaryConfig.getLengthStr(), contentType)
+	if err != nil {
+		return "", err
+	}
+
+	videoLength := summaryConfig.getLengthStr()
+
+	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
+	contents := []*genai.Content{
+		{Parts: []*genai.Part{
+			genai.NewPartFromText(prompt),
+		},
+			Role: genai.RoleUser},
+	}
+	var genaiContentCache *genai.CachedContent
+	if summaryConfig.isChunk() {
+		genaiContentCache, err = config.GetGenaiContentCacheWithChunk(
 			CONTENT_SUMMARY_STEP_MODEL,
-			inputValues[common.CONTENT_TYPE_STEP],
+			contentType,
+			systemInstructions,
+			summaryConfig.getStartOffsetSec(),
+			summaryConfig.getEndOffsetSec(),
+		)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		genaiContentCache, err = config.GetGenaiContentCache(
+			CONTENT_SUMMARY_STEP_MODEL,
+			contentType,
 			systemInstructions,
 		)
 		if err != nil {
 			return "", err
 		}
-
-		var stepErr error
-		for i := range maxRetries {
-			out, err := cloud.GenerateMultiModalResponse(
-				config.BasicRunConfig.Ctx,
-				config.Counters.InputCounter,
-				config.Counters.OutputCounter,
-				config.Counters.RetryCounter, 0,
-				config.GenaiRunConfig.AgentModels[CONTENT_SUMMARY_STEP_MODEL],
-				"",
-				genaiContentCache.Name,
-				contents,
-				model.NewMediaSummarySchema(),
-			)
-			if err != nil {
-				stepErr = err
-				continue
-			}
-			normalizedOutput, err := normalizeAndValidateOutput(config, out, inputValues[common.CONTENT_LENGTH_STEP])
-			if err == nil {
-				return normalizedOutput, nil
-			}
-			stepErr = err
-			log.Printf("Content summary validation failed on attempt %d: %v", i+1, stepErr)
-		}
-		return "", fmt.Errorf("content summary generation and validation failed after %d attempts: %w", maxRetries, stepErr)
 	}
+	var stepErr error
+	for i := range maxRetries {
+		out, err := cloud.GenerateMultiModalResponse(
+			config.BasicRunConfig.Ctx,
+			config.Counters.InputCounter,
+			config.Counters.OutputCounter,
+			config.Counters.RetryCounter, 0,
+			config.GenaiRunConfig.AgentModels[CONTENT_SUMMARY_STEP_MODEL],
+			"",
+			genaiContentCache.Name,
+			contents,
+			model.NewMediaSummarySchema(),
+		)
+		if err != nil {
+			stepErr = err
+			continue
+		}
+
+		normalizedOutput, err := normalizeAndValidateOutput(config, out, videoLength)
+		if err == nil {
+			return normalizedOutput, nil
+		}
+		stepErr = err
+		log.Printf("Content summary validation failed on attempt %d: %v", i+1, stepErr)
+	}
+	return "", fmt.Errorf("content summary generation and validation failed after %d attempts: %w", maxRetries, stepErr)
 }
 
 func normalizeAndValidateOutput(config *common.GenaiStepConfig, rawOutput string, videoLengthStr string) (string, error) {
@@ -130,7 +350,7 @@ func normalizeAndValidateOutput(config *common.GenaiStepConfig, rawOutput string
 	return string(objBytes), nil
 }
 
-func generatePrompt(config *common.GenaiStepConfig, inputValues map[string]string) (string, error) {
+func generatePrompt(config *common.GenaiStepConfig, videoLength string, contentType string) (string, error) {
 	templateParams := make(map[string]interface{})
 
 	catStr := ""
@@ -145,11 +365,11 @@ func generatePrompt(config *common.GenaiStepConfig, inputValues map[string]strin
 
 	templateParams["CATEGORIES"] = catStr
 	templateParams["EXAMPLE_JSON"] = string(exampleSummary)
-	templateParams["VIDEO_LENGTH"] = inputValues[common.CONTENT_LENGTH_STEP]
-	templateParams["VIDEO_END_TIMESTAMP"] = convertSecondsToHHMMSS(inputValues[common.CONTENT_LENGTH_STEP])
+	templateParams["VIDEO_LENGTH"] = videoLength
+	templateParams["VIDEO_END_TIMESTAMP"] = convertSecondsToHHMMSS(videoLength)
 
 	var buffer bytes.Buffer
-	if err := config.GenaiRunConfig.TemplateService.GetTemplateBy(inputValues[common.CONTENT_TYPE_STEP]).SummaryPrompt.Execute(&buffer, templateParams); err != nil {
+	if err := config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SummaryPrompt.Execute(&buffer, templateParams); err != nil {
 		return "", err
 	}
 
@@ -157,15 +377,19 @@ func generatePrompt(config *common.GenaiStepConfig, inputValues map[string]strin
 
 }
 
+func convertIntSecondsToHHMMSS(intSeconds int) string {
+	hours := intSeconds / 3600
+	minutes := (intSeconds % 3600) / 60
+	seconds := intSeconds % 60
+	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+}
+
 func convertSecondsToHHMMSS(secondsStr string) string {
 	s, err := strconv.Atoi(secondsStr)
 	if err != nil {
 		return ""
 	}
-	hours := s / 3600
-	minutes := (s % 3600) / 60
-	seconds := s % 60
-	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+	return convertIntSecondsToHHMMSS(s)
 }
 
 func timeToSeconds(ts string) (int, error) {

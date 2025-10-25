@@ -118,9 +118,17 @@ func getInputObjects(config *common.GenaiRunConfig) (*InputObjects, error) {
 
 	segmentStepValues := config.BasicRunConfig.GetStepsOutput(segmentStepKeys)
 
-	for _, segmentValue := range segmentStepValues {
+	for i, stepKey := range segmentStepKeys {
+		segmentValue, ok := segmentStepValues[stepKey]
+		if !ok {
+			continue // Or handle missing segment summary
+		}
 		segment := &model.Segment{}
 		json.Unmarshal([]byte(segmentValue), segment)
+		if segment.SequenceNumber == 0 {
+			log.Printf("Warning: Segment for step %s has sequence number 0. Overwriting with %d.", stepKey, i+1)
+			segment.SequenceNumber = i + 1
+		}
 		segments = append(segments, segment)
 	}
 	inpubObjects.Segments = segments
