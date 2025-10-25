@@ -129,6 +129,10 @@ func getInputObjects(config *common.GenaiRunConfig) (*InputObjects, error) {
 			log.Printf("Warning: Segment for step %s has sequence number 0. Overwriting with %d.", stepKey, i+1)
 			segment.SequenceNumber = i + 1
 		}
+		if segment.Script == "" {
+			log.Printf("Warning: Segment for step %s has empty script. Skipping.", stepKey)
+			continue
+		}
 		segments = append(segments, segment)
 	}
 	inpubObjects.Segments = segments
