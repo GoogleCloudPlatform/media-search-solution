@@ -66,11 +66,7 @@ func (config *BasicStepConfig) setStepStatusToCompleted(output string) (string, 
 }
 
 func (config *BasicStepConfig) UpdateGCSObjectMetadata(metadata map[string]string) (string, error) {
-	storageClient, err := storage.NewClient(config.BasicRunConfig.Ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to create storage client: %v", err)
-	}
-	defer storageClient.Close()
+	storageClient := config.BasicRunConfig.GetStorageClient()
 	objectUpdate := storage.ObjectAttrsToUpdate{
 		Metadata: metadata,
 	}

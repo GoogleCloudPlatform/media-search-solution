@@ -69,6 +69,7 @@ func NewGenaiRunConfig() (*GenaiRunConfig, error) {
 		BigQueryClient:  cloudClients.BiqQueryClient,
 		GenAIEmbedding:  cloudClients.EmbeddingModels["multi-lingual"],
 	}
+	config.SetStorageClient(cloudClients.StorageClient)
 	return config, nil
 
 }

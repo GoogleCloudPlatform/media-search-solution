@@ -27,10 +27,11 @@ import (
 )
 
 type BasicRunConfig struct {
-	InputFile   string
-	InputBucket string
-	MountPoint  string
-	Ctx         context.Context
+	InputFile     string
+	InputBucket   string
+	MountPoint    string
+	Ctx           context.Context
+	storageClient *storage.Client
 }
 
 func NewBasicRunConfig() (*BasicRunConfig, error) {
@@ -71,11 +72,7 @@ func Getenv(key, fallback string) string {
 }
 
 func (config *BasicRunConfig) getRunSourceObjectMetadata() (map[string]string, error) {
-	storageClient, err := storage.NewClient(config.Ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create storage client: %v", err)
-	}
-	defer storageClient.Close()
+	storageClient := config.GetStorageClient()
 
 	bucket := storageClient.Bucket(config.InputBucket)
 	obj := bucket.Object(config.InputFile)
@@ -86,6 +83,20 @@ func (config *BasicRunConfig) getRunSourceObjectMetadata() (map[string]string, e
 	}
 
 	return attrs.Metadata, nil
+}
+
+func (config *BasicRunConfig) GetStorageClient() *storage.Client {
+	if config.storageClient == nil {
+		config.storageClient, _ = storage.NewClient(config.Ctx)
+	}
+	return config.storageClient
+}
+
+func (config *BasicRunConfig) SetStorageClient(storageClient *storage.Client) {
+	if config.storageClient != nil {
+		config.storageClient.Close()
+	}
+	config.storageClient = storageClient
 }
 
 func (config *BasicRunConfig) GetStepStatusByKey(stepKey string) *StepStatus {
