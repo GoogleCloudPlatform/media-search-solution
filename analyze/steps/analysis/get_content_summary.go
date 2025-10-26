@@ -444,6 +444,12 @@ func validateContentSummary(summary *model.MediaSummary, videoLength int) error 
 		if i > 0 && start-prevEnd > 1 {
 			return fmt.Errorf("segment %d: gap detected, start time %s does not follow previous end time %d within 1s tolerance", i+1, segment.Start, prevEnd)
 		}
+
+		//5. ensure the segment length is at minimum 5 second, shorter than this gemini won't give any valid response
+		if end-start < 5 {
+			return fmt.Errorf("segment %d: length of less than 5 seconds detected", i+1)
+		}
+
 		prevEnd = end
 	}
 
