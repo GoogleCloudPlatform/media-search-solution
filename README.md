@@ -25,7 +25,7 @@ When you deploy this solution, it sets up an automated pipeline on Google Cloud 
 
 1.  **Ingests Videos:** Watches for new video uploads to a designated Cloud Storage bucket.
 1.  **Processes Media:** Automatically creates low-resolution proxy versions for efficient playback and analysis.
-1.  **Extracts Intelligence:** Uses Google's Gemini models to analyze video content and extract rich metadata, such as object detection, segment descriptions, and key topics.
+1.  **Extracts Intelligence:** Triggers Cloud Run jobs orchestrated by Cloud Workflows to analyze video content using Google's Gemini models and extract rich metadata, such as object detection, segment descriptions, and key topics.
 1.  **Persists Data:** Stores all extracted metadata and analysis results in a structured BigQuery dataset.
 1.  **Enables Search:** Deploys a secure web application on Cloud Run that allows users to perform powerful, AI-driven searches across the entire video library.
 
@@ -44,7 +44,7 @@ This solution is ideal for:
 
 ### Technical Design
 
-The processing pipeline is built on the Chain of Responsibility (COR) design pattern. Each unit of work is atomic, and state is conveyed via a shared context object to each link in the chain.
+The processing pipeline is event-driven, triggered by file uploads to Cloud Storage. It uses Cloud Workflows to orchestrate a series of serverless Cloud Run Jobs for tasks like proxy generation and AI-based media analysis. This provides a robust and scalable architecture for handling media processing. The web front-end is a separate service running on Cloud Run.
 
 ## Project History
 
@@ -112,17 +112,21 @@ Once the project is set up, the identity deploying the Infrastructure-as-Code (I
     ```sh
     terraform init
     ```
+    **NOTE:** When using Cloud Shell, the `terraform init` command can sometimes fail due to insufficient disk space. If you encounter an out-of-disk-space error, please follow the [Clearing disk space guide](https://docs.cloud.google.com/shell/docs/quotas-limits#clearing_disk_space) to free up space before proceeding.
 1. **Deploy the resources.** Apply the Terraform configuration to create the Google Cloud resources. You will be prompted to review the plan and confirm the changes by typing `yes`:
     ```sh
     terraform apply
     ```
     The provisioning process may take approximately 30 minutes to complete.
 
+    **NOTE:** During deployment, you might encounter a transient permission error related to the Eventarc Service Agent. This is often due to a brief delay in IAM permission propagation. If this occurs, wait a few minutes and then re-run the `terraform apply` command to resolve the issue.
+
 ### Deploy the Media Search service on Cloud Run
 After Terraform has successfully created the infrastructure and built the container image, the final step is to deploy the application to Cloud Run and configure its access policies.
 
 1. **Run the deployment script.** From your project root directory, execute the deployment script:
     ```bash
+    cd ../..
     scripts/deploy_media_search.sh
     ```
     This script automates the following steps:
@@ -168,14 +172,25 @@ Uploading a file to this bucket automatically triggers the video processing work
 
 #### 2.2. Monitoring the Workflow
 
-You can monitor the progress of the video processing by viewing the logs of the Cloud Run service. The following command will get url to the Google Cloud console and navigate to the url in a web browser.
+You can monitor the progress of the video processing by viewing the execution logs of the Cloud Run Jobs. The following command will generate a URL to the Google Cloud console where you can view the jobs executions detail, and drill into exection logs.
+
+- For the proxy generation job, run the following command:
+
 ```sh
-echo "https://console.cloud.google.com/run/detail/$(terraform -chdir="build/terraform" output -raw cloud_run_region)/$(terraform -chdir="build/terraform" output -raw cloud_run_service_name)/logs?project=$(terraform -chdir="build/terraform" output -raw project_id)"
+echo "https://console.cloud.google.com/run/jobs/details/$(terraform -chdir="build/terraform" output -raw cloud_run_region)/generate-proxy-job/executions?project=$(terraform -chdir="build/terraform" output -raw project_id)"
 ```
-Look for log entries related to the processing of your uploaded file. A key log entry to watch for is: `Persisting data`. This message indicates that the video analysis is complete and the extracted metadata is being written to BigQuery.
 
-**NOTE:** The Cloud Run service scales to zero after 15 minutes of inactivity (`[INFO] Shutdown Server ...` will appear in logs). In this case, visit the web application to activate a new instance.
+- For the media analysis job, run the following command:
 
+```sh
+echo "https://console.cloud.google.com/run/jobs/details/$(terraform -chdir="build/terraform" output -raw cloud_run_region)/media-analysis-job/executions?project=$(terraform -chdir="build/terraform" output -raw project_id)"
+```
+
+Each entry in the list corresponds to the processing of a single video file. You can monitor the status of your jobs (e.g., `Succeeded`, `Failed`) directly from this list.
+To identify which video a specific job processed and to view its detailed logs:
+1. Click on an execution in the list to open its details page.
+1. Navigate to the YAML tab and find the `INPUT_FILE` environment variable to see the path of the processed video file.
+1. To view detailed logs, switch back to the `Tasks` tab and click `View Logs`. A key log entry to watch for in the analysis job is `Persisting batch of n segment summaries...`, which indicates that the video analysis is complete and the metadata is being written to BigQuery.
 
 ### 3. Searching for Media Content
 
