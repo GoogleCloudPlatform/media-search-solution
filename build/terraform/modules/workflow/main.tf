@@ -59,6 +59,12 @@ resource "google_cloud_run_v2_job" "generate_proxy_job" {
           name  = "OUTPUT_FOLDER"
           value = var.low_res_bucket
         }
+        resources {
+          limits = {
+            cpu    = "8"
+            memory = "4Gi"
+          }
+        }
       }
       service_account = var.media_search_service_account_email
       timeout         = "3600s"
