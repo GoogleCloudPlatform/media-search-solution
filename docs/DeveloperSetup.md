@@ -48,6 +48,26 @@ MOUNT_POINT_PATH=$(cd "$HOME/media-search-mnt" && pwd)
 sed -i "/low_res_output_bucket/a gcs_fuse_mount_point = \"$MOUNT_POINT_PATH\"" configs/.env.local.toml
 ```
 
+## Manually trigger pipeline executions
+You can manually trigger the `proxy-generation-workflow` and `analyze-workflow `for development and testing, which are otherwise initiated automatically by file uploads.
+
+To execute a workflow, use the corresponding gcloud command below. In each command, replace the `<file-name>` placeholder with the name of the file you wish to process.
+
+* Trigger `proxy-generation-workflow` run:
+    ```sh
+    gcloud workflows run proxy-generation-workflow \
+      --project=$(terraform -chdir=build/terraform output -raw project_id) \
+      --location=$(terraform -chdir=build/terraform output -raw cloud_run_region) \
+      --data='{"data":{"bucket":"'"$(terraform -chdir=build/terraform output -raw high_res_bucket)"'","name":"<file-name>"}}'
+    ```
+* Trigger `analyze-workflow` run:
+    ```sh
+    gcloud workflows run analyze-workflow \
+      --project=$(terraform -chdir=build/terraform output -raw project_id) \
+      --location=$(terraform -chdir=build/terraform output -raw cloud_run_region) \
+      --data='{"data":{"bucket":"'"$(terraform -chdir=build/terraform output -raw low_res_bucket)"'","name":"<file-name>"}}'
+    ```
+
 ### State Management and Resiliency
 
 A key feature of the `analyze-workflow` is its use of Cloud Storage object metadata to track the state of the analysis process. Intermediate results and step-completion markers are saved as custom metadata on the processed file.
