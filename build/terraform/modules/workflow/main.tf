@@ -160,6 +160,12 @@ resource "google_cloud_run_v2_job" "media_analysis_job" {
           name  = "GCP_CONFIG_PREFIX"
           value = "/mnt/${var.config_bucket}"
         }
+        resources {
+          limits = {
+            cpu    = "8"
+            memory = "4Gi"
+          }
+        }
       }
       service_account = var.media_search_service_account_email
       timeout         = "3600s"

@@ -33,7 +33,7 @@ import (
 
 const (
 	CONTENT_SUMMARY_STEP_MODEL = "creative-flash"
-	maxRetries                 = 3
+	maxRetries                 = 5
 	CHUNK_LENGTH_SEC           = 1200
 )
 
