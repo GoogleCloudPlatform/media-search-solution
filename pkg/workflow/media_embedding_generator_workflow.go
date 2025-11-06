@@ -115,12 +115,12 @@ func (m *MediaEmbeddingGeneratorWorkflow) Execute(context cor.Context) {
 			return
 		}
 
-		toInsert := make([]*model.SceneEmbedding, 0)
+		toInsert := make([]*model.SegmentEmbedding, 0)
 
-		for _, scene := range value.Scenes {
-			in := model.NewSceneEmbedding(value.Id, scene.SequenceNumber, m.ModelName)
+		for _, segment := range value.Segments {
+			in := model.NewSegmentEmbedding(value.Id, segment.SequenceNumber, m.ModelName)
 			contents := []*genai.Content{
-				genai.NewContentFromText(scene.Script, genai.RoleUser),
+				genai.NewContentFromText(segment.Script, genai.RoleUser),
 			}
 
 			resp, err := m.genaiEmbedding.EmbedContent(context.GetContext(), m.ModelName, contents, nil)

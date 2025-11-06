@@ -38,7 +38,7 @@ import (
 	"google.golang.org/genai"
 )
 
-type SceneExtractor struct {
+type SegmentExtractor struct {
 	cor.BaseCommand
 	generativeAIModel        *cloud.QuotaAwareGenerativeAIModel
 	templateService          *cloud.TemplateService
@@ -49,13 +49,13 @@ type SceneExtractor struct {
 	contentTypeParamName     string
 }
 
-func NewSceneExtractor(
+func NewSegmentExtractor(
 	name string,
 	model *cloud.QuotaAwareGenerativeAIModel,
 	templateService *cloud.TemplateService,
 	numberOfWorkers int,
-	contentTypeParamName string) *SceneExtractor {
-	out := &SceneExtractor{
+	contentTypeParamName string) *SegmentExtractor {
+	out := &SegmentExtractor{
 		BaseCommand:          *cor.NewBaseCommand(name),
 		generativeAIModel:    model,
 		templateService:      templateService,
@@ -69,13 +69,13 @@ func NewSceneExtractor(
 	return out
 }
 
-func (s *SceneExtractor) IsExecutable(context cor.Context) bool {
+func (s *SegmentExtractor) IsExecutable(context cor.Context) bool {
 	return context != nil &&
 		context.Get(s.GetInputParam()) != nil &&
 		context.Get(cloud.GetGCSObjectName()) != nil
 }
 
-func (s *SceneExtractor) Execute(context cor.Context) {
+func (s *SegmentExtractor) Execute(context cor.Context) {
 	summary := context.Get(s.GetInputParam()).(*model.MediaSummary)
 	gcsFile := context.Get(cloud.GetGCSObjectName()).(*cloud.GCSObject)
 	gcsFileLink := fmt.Sprintf("gs://%s/%s", gcsFile.Bucket, gcsFile.Name)
@@ -85,8 +85,8 @@ func (s *SceneExtractor) Execute(context cor.Context) {
 		MIMEType: gcsFile.MIMEType,
 	}
 
-	exampleScene := model.GetExampleScene()
-	exampleJson, _ := json.Marshal(exampleScene)
+	exampleSegment := model.GetExampleSegment()
+	exampleJson, _ := json.Marshal(exampleSegment)
 	exampleText := string(exampleJson)
 
 	// Create a human-readable cast
@@ -97,18 +97,18 @@ func (s *SceneExtractor) Execute(context cor.Context) {
 	summaryText := fmt.Sprintf("Title:%s\nSummary:\n\n%s\nCast:\n\n%v\n", summary.Title, summary.Summary, castString)
 
 	var wg sync.WaitGroup
-	jobs := make(chan *SceneJob, len(summary.SceneTimeStamps))
-	results := make(chan *SceneResponse, len(summary.SceneTimeStamps))
+	jobs := make(chan *SegmentJob, len(summary.SegmentTimeStamps))
+	results := make(chan *SegmentResponse, len(summary.SegmentTimeStamps))
 
 	// Create worker pool
 	for w := 1; w <= s.numberOfWorkers; w++ {
 		wg.Add(1)
-		go sceneWorker(jobs, results, &wg)
+		go segmentWorker(jobs, results, &wg)
 	}
 
-	// Execute all scenes against the worker pool
-	for i, ts := range summary.SceneTimeStamps {
-		job := CreateJob(context.GetContext(), s.Tracer, s.geminiInputTokenCounter, s.geminiOutputTokenCounter, s.geminiRetryCounter, i, s.GetName(), summaryText, exampleText, *s.templateService.GetTemplateBy(mediaType).ScenePrompt, videoFile, s.generativeAIModel, ts)
+	// Execute all segments against the worker pool
+	for i, ts := range summary.SegmentTimeStamps {
+		job := CreateJob(context.GetContext(), s.Tracer, s.geminiInputTokenCounter, s.geminiOutputTokenCounter, s.geminiRetryCounter, i, s.GetName(), summaryText, exampleText, *s.templateService.GetTemplateBy(mediaType).SegmentPrompt, videoFile, s.generativeAIModel, ts)
 		jobs <- job
 	}
 
@@ -117,14 +117,14 @@ func (s *SceneExtractor) Execute(context cor.Context) {
 	close(results)
 
 	// Aggregate the responses
-	sceneData := make([]string, 0)
+	segmentData := make([]string, 0)
 	for r := range results {
 		if r.err != nil {
 			s.GetErrorCounter().Add(context.GetContext(), 1)
 			context.AddError(s.GetName(), r.err)
 		} else {
 
-			sceneData = append(sceneData, r.value)
+			segmentData = append(segmentData, r.value)
 		}
 	}
 
@@ -132,16 +132,16 @@ func (s *SceneExtractor) Execute(context cor.Context) {
 		s.GetSuccessCounter().Add(context.GetContext(), 1)
 	}
 
-	context.Add(s.GetOutputParam(), sceneData)
-	context.Add(cor.CtxOut, sceneData)
+	context.Add(s.GetOutputParam(), segmentData)
+	context.Add(cor.CtxOut, segmentData)
 }
 
-type SceneResponse struct {
+type SegmentResponse struct {
 	value string
 	err   error
 }
 
-type SceneJob struct {
+type SegmentJob struct {
 	workerId                 int
 	ctx                      goctx.Context
 	geminiInputTokenCounter  metric.Int64Counter
@@ -154,7 +154,7 @@ type SceneJob struct {
 	err                      error
 }
 
-func (s *SceneJob) Close(status codes.Code, description string) {
+func (s *SegmentJob) Close(status codes.Code, description string) {
 	s.span.SetStatus(status, description)
 	s.span.End()
 }
@@ -173,9 +173,9 @@ func CreateJob(
 	videoFile *genai.FileData,
 	model *cloud.QuotaAwareGenerativeAIModel,
 	timeSpan *model.TimeSpan,
-) *SceneJob {
-	sceneCtx, sceneSpan := tracer.Start(ctx, fmt.Sprintf("%s_genai", commandName))
-	sceneSpan.SetAttributes(
+) *SegmentJob {
+	segmentCtx, segmentSpan := tracer.Start(ctx, fmt.Sprintf("%s_genai", commandName))
+	segmentSpan.SetAttributes(
 		attribute.Int("sequence", workerId),
 		attribute.String("start", timeSpan.Start),
 		attribute.String("end", timeSpan.End),
@@ -190,7 +190,7 @@ func CreateJob(
 	var doc bytes.Buffer
 	err := template.Execute(&doc, vocabulary)
 	if err != nil {
-		return &SceneJob{err: err}
+		return &SegmentJob{err: err}
 	}
 	tsPrompt := doc.String()
 
@@ -202,31 +202,31 @@ func CreateJob(
 			Role: "user"},
 	}
 
-	return &SceneJob{workerId: workerId,
-		ctx:                      sceneCtx,
+	return &SegmentJob{workerId: workerId,
+		ctx:                      segmentCtx,
 		geminiInputTokenCounter:  geminiInputTokenCounter,
 		geminiOutputTokenCounter: geminiOutputTokenCounter,
 		geminiRetryCounter:       geminiRetryCounter,
-		timeSpan:                 timeSpan, span: sceneSpan, contents: contents, model: model}
+		timeSpan:                 timeSpan, span: segmentSpan, contents: contents, model: model}
 }
 
 // Create a worker function for parallel work streams
-func sceneWorker(jobs <-chan *SceneJob, results chan<- *SceneResponse, wg *sync.WaitGroup) {
+func segmentWorker(jobs <-chan *SegmentJob, results chan<- *SegmentResponse, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for j := range jobs {
 		if j.err == nil {
-			out, err := cloud.GenerateMultiModalResponse(j.ctx, j.geminiInputTokenCounter, j.geminiOutputTokenCounter, j.geminiRetryCounter, 0, j.model, "", j.contents, model.NewSceneExtractorSchema())
+			out, err := cloud.GenerateMultiModalResponse(j.ctx, j.geminiInputTokenCounter, j.geminiOutputTokenCounter, j.geminiRetryCounter, 0, j.model, "", j.contents, model.NewSegmentExtractorSchema())
 			if err != nil {
-				j.Close(codes.Error, "scene extract failed")
-				results <- &SceneResponse{err: err}
+				j.Close(codes.Error, "segment extract failed")
+				results <- &SegmentResponse{err: err}
 				return
 			}
 			if len(strings.Trim(out, " ")) > 0 && out != "{}" {
-				results <- &SceneResponse{value: out, err: nil}
+				results <- &SegmentResponse{value: out, err: nil}
 			}
-			j.Close(codes.Ok, "completed scene")
+			j.Close(codes.Ok, "completed segment")
 		} else {
-			results <- &SceneResponse{value: "", err: j.err}
+			results <- &SegmentResponse{value: "", err: j.err}
 		}
 	}
 }

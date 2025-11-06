@@ -51,7 +51,7 @@ type Media struct {
 	Genre           string        `json:"genre,omitempty" bigquery:"genre"`
 	Rating          string        `json:"rating,omitempty" bigquery:"rating"`
 	Cast            []*CastMember `json:"cast,omitempty" bigquery:"cast"`
-	Scenes          []*Scene      `json:"scenes,omitempty" bigquery:"scenes"`
+	Segments        []*Segment    `json:"segments,omitempty" bigquery:"segments"`
 }
 
 func NewMedia(fileName string) *Media {
@@ -61,13 +61,13 @@ func NewMedia(fileName string) *Media {
 		Id:         generatedID.String(),
 		CreateDate: time.Now(),
 		Cast:       make([]*CastMember, 0),
-		Scenes:     make([]*Scene, 0),
+		Segments:   make([]*Segment, 0),
 	}
 }
 
-// Scene is a representation of a time span and it's sequence in a media object
+// Segment is a representation of a time span and it's sequence in a media object
 // giving granular detail for the agent objects to interrogate
-type Scene struct {
+type Segment struct {
 	SequenceNumber   int    `json:"sequence" bigquery:"sequence"`
 	TokensToGenerate int    `json:"tokens_to_generate" bigquery:"tokens_to_generate"`
 	TokensGenerated  int    `json:"tokens_generated" bigquery:"tokens_generated"`
@@ -82,26 +82,26 @@ type CastMember struct {
 	ActorName     string `json:"actor_name" bigquery:"actor_name"`
 }
 
-// CastDialog is a mapping from a character to the spoken word in a scene
+// CastDialog is a mapping from a character to the spoken word in a segment
 type CastDialog struct {
 	CharacterName string `json:"character_name" bigquery:"character_name"`
 	Dialog        string `json:"dialog" bigquery:"dialog"`
 }
 
-// SceneEmbedding captures the summary embedding of a media file, good for general searches.
-type SceneEmbedding struct {
+// SegmentEmbedding captures the summary embedding of a media file, good for general searches.
+type SegmentEmbedding struct {
 	Id             string    `json:"id" bigquery:"media_id"`
 	SequenceNumber int       `json:"sequence_number" bigquery:"sequence_number"`
 	ModelName      string    `json:"model_name" bigquery:"model_name"`
 	Embeddings     []float64 `json:"embeddings" bigquery:"embeddings"`
 }
 
-func NewSceneEmbedding(
+func NewSegmentEmbedding(
 	mediaId string,
 	sequenceNumber int,
-	modelName string) *SceneEmbedding {
+	modelName string) *SegmentEmbedding {
 
-	return &SceneEmbedding{
+	return &SegmentEmbedding{
 		Id:             mediaId,
 		SequenceNumber: sequenceNumber,
 		ModelName:      modelName,

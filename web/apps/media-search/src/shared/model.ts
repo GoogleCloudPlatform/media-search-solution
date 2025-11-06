@@ -19,7 +19,7 @@ export interface CastMember {
     character_name: string;
 }
 
-export interface Scene {
+export interface Segment {
     sequence: number;
     start: string;
     end: string;
@@ -39,5 +39,5 @@ export interface MediaResult {
     genre: string;
     rating: string;
     cast: CastMember[];
-    scenes: Scene[];
+    segments: Segment[];
 }

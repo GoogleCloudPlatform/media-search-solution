@@ -38,8 +38,8 @@ type SearchService struct {
 	EmbeddingTable string
 }
 
-func (s *SearchService) FindScenes(ctx context.Context, query string, maxResults int) (out []*model.SceneMatchResult, err error) {
-	out = make([]*model.SceneMatchResult, 0)
+func (s *SearchService) FindSegments(ctx context.Context, query string, maxResults int) (out []*model.SegmentMatchResult, err error) {
+	out = make([]*model.SegmentMatchResult, 0)
 
 	// Create contents from query
 	contents := []*genai.Content{
@@ -63,7 +63,7 @@ func (s *SearchService) FindScenes(ctx context.Context, query string, maxResults
 	}
 
 	for {
-		var r = &model.SceneMatchResult{}
+		var r = &model.SegmentMatchResult{}
 		err := itr.Next(r)
 		if err == iterator.Done {
 			break

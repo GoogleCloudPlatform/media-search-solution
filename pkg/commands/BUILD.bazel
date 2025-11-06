@@ -29,7 +29,7 @@ go_library(
         "media_summary_creator.go",
         "media_summary_json_to_struct.go",
         "media_trigger_reader.go",
-        "scene_extractor.go",
+        "segment_extractor.go",
     ],
     importpath = "github.com/GoogleCloudPlatform/media-search-solution/pkg/commands",
     visibility = ["//visibility:public"],

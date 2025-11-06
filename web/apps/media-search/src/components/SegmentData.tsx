@@ -16,21 +16,21 @@
 
 
 import {Box, Grid2, Typography} from "@mui/material";
-import {Scene} from "../shared/model";
+import {Segment} from "../shared/model";
 
-const SceneData = ({url, scene}: { url: string, scene: Scene }) => {
+const SegmentData = ({url, segment}: { url: string, segment: Segment }) => {
 
     const formatScript = (val: string): string => {
         return val.replace("\n", "<br/>")
     }
 
     const GetStartTimeInSeconds = (): number => {
-        const parts = scene.start.split(':');
+        const parts = segment.start.split(':');
         return parseInt(parts[0])*60*60 + parseInt(parts[1])*60 + parseInt(parts[2]);
     }
 
     const GetEndTimeInSeconds = (): number => {
-        const parts = scene.end.split(':');
+        const parts = segment.end.split(':');
         return parseInt(parts[0])*60*60 + parseInt(parts[1])*60 + parseInt(parts[2]);
     }
 
@@ -42,9 +42,9 @@ const SceneData = ({url, scene}: { url: string, scene: Scene }) => {
                     <Grid2 size={4} sx={{fontWeight: 800}}>Start</Grid2>
                     <Grid2 size={4} sx={{fontWeight: 800}}>End</Grid2>
 
-                    <Grid2 size={4}>{scene.sequence}</Grid2>
-                    <Grid2 size={4}>{scene.start}</Grid2>
-                    <Grid2 size={4}>{scene.end}</Grid2>
+                    <Grid2 size={4}>{segment.sequence}</Grid2>
+                    <Grid2 size={4}>{segment.start}</Grid2>
+                    <Grid2 size={4}>{segment.end}</Grid2>
                 </Grid2>
             </Grid2>
             <Grid2 size={6} >
@@ -55,9 +55,9 @@ const SceneData = ({url, scene}: { url: string, scene: Scene }) => {
                 </Box>
             </Grid2>
             <Grid2 size={12} sx={{textAlign: 'left'}}><Typography component="div" variant="body2">
-                <div dangerouslySetInnerHTML={{__html: formatScript(scene.script)}}/>
+                <div dangerouslySetInnerHTML={{__html: formatScript(segment.script)}}/>
             </Typography></Grid2>
         </>)
 };
 
-export default SceneData
+export default SegmentData

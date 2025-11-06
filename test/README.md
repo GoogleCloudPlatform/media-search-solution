@@ -28,14 +28,14 @@ bazel test //test/workflow:media_ingestion
 # Create the embeddings
 bazel test //test/workflow:media_embeddings
 
-# Run a test cast, find all scenes with Woody Harrelson AKA Carnage
+# Run a test cast, find all segments with Woody Harrelson AKA Carnage
 bazel test //test/services/...
 
 ```
 
 ## Example Output
 
-Here you should see the media file ID, and the scene sequence number.
+Here you should see the media file ID, and the segment sequence number.
 
 ```shell
 0192aa4e-e375-7f26-aaec-ebe4fb4d803b - 25

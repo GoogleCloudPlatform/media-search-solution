@@ -37,7 +37,7 @@ func MediaRouter(r *gin.RouterGroup) {
 				c.Status(404)
 				return
 			}
-			sceneResults, err := state.searchService.FindScenes(c, query, count)
+			segmentResults, err := state.searchService.FindSegments(c, query, count)
 
 			if err != nil {
 				c.Status(404)
@@ -48,7 +48,7 @@ func MediaRouter(r *gin.RouterGroup) {
 			out := make(map[string]*model.Media, 0)
 
 			// Convert the results into a map driven by the media id
-			for _, r := range sceneResults {
+			for _, r := range segmentResults {
 				var med *model.Media
 				if m, ok := out[r.MediaId]; !ok {
 					m, err := state.mediaService.Get(c, r.MediaId)
@@ -57,20 +57,20 @@ func MediaRouter(r *gin.RouterGroup) {
 						c.Status(400)
 						return
 					}
-					// Clear the scenes
-					m.Scenes = make([]*model.Scene, 0)
+					// Clear the segments
+					m.Segments = make([]*model.Segment, 0)
 					out[r.MediaId] = m
 					med = m
 				} else {
 					med = m
 				}
 
-				s, err := state.mediaService.GetScene(c, r.MediaId, r.SequenceNumber)
+				s, err := state.mediaService.GetSegment(c, r.MediaId, r.SequenceNumber)
 				if err != nil {
 					c.Status(400)
 					return
 				}
-				med.Scenes = append(med.Scenes, s)
+				med.Segments = append(med.Segments, s)
 			}
 			// Reduce
 			results := make([]*model.Media, 0)
@@ -90,14 +90,14 @@ func MediaRouter(r *gin.RouterGroup) {
 			c.JSON(200, out)
 		})
 
-		media.GET("/:id/scenes/:scene_id", func(c *gin.Context) {
+		media.GET("/:id/segments/:segment_id", func(c *gin.Context) {
 			id := c.Param("id")
-			sceneId, err := strconv.Atoi(c.Param("scene_id"))
+			segmentId, err := strconv.Atoi(c.Param("segment_id"))
 			if err != nil {
 				c.Status(400)
 				return
 			}
-			out, err := state.mediaService.GetScene(c, id, sceneId)
+			out, err := state.mediaService.GetSegment(c, id, segmentId)
 			if err != nil {
 				c.Status(404)
 				return
