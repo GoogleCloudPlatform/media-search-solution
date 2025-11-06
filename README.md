@@ -1,5 +1,5 @@
 <!--
- Copyright 2024 Google, LLC
+ Copyright 2025 Google, LLC
  
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ When you deploy this solution, it sets up an automated pipeline on Google Cloud 
 
 1.  **Ingests Videos:** Watches for new video uploads to a designated Cloud Storage bucket.
 1.  **Processes Media:** Automatically creates low-resolution proxy versions for efficient playback and analysis.
-1.  **Extracts Intelligence:** Uses Google's Gemini models to analyze video content and extract rich metadata, such as object detection, segment descriptions, and key topics.
+1.  **Extracts Intelligence:** Triggers Cloud Run jobs orchestrated by Cloud Workflows to analyze video content using Google's Gemini models and extract rich metadata, such as object detection, segment descriptions, and key topics.
 1.  **Persists Data:** Stores all extracted metadata and analysis results in a structured BigQuery dataset.
 1.  **Enables Search:** Deploys a secure web application on Cloud Run that allows users to perform powerful, AI-driven searches across the entire video library.
 
@@ -44,7 +44,7 @@ This solution is ideal for:
 
 ### Technical Design
 
-The processing pipeline is built on the Chain of Responsibility (COR) design pattern. Each unit of work is atomic, and state is conveyed via a shared context object to each link in the chain.
+The processing pipeline is event-driven, triggered by file uploads to Cloud Storage. It uses Cloud Workflows to orchestrate a series of serverless Cloud Run Jobs for tasks like proxy generation and AI-based media analysis. This provides a robust and scalable architecture for handling media processing. The web front-end is a separate service running on Cloud Run.
 
 ## Project History
 
@@ -112,17 +112,21 @@ Once the project is set up, the identity deploying the Infrastructure-as-Code (I
     ```sh
     terraform init
     ```
+    **NOTE:** When using Cloud Shell, the `terraform init` command can sometimes fail due to insufficient disk space. If you encounter an out-of-disk-space error, please follow the [Clearing disk space guide](https://docs.cloud.google.com/shell/docs/quotas-limits#clearing_disk_space) to free up space before proceeding.
 1. **Deploy the resources.** Apply the Terraform configuration to create the Google Cloud resources. You will be prompted to review the plan and confirm the changes by typing `yes`:
     ```sh
     terraform apply
     ```
     The provisioning process may take approximately 30 minutes to complete.
 
+    **NOTE:** During deployment, you might encounter a transient permission error related to the Eventarc Service Agent. This is often due to a brief delay in IAM permission propagation. If this occurs, wait a few minutes and then re-run the `terraform apply` command to resolve the issue.
+
 ### Deploy the Media Search service on Cloud Run
 After Terraform has successfully created the infrastructure and built the container image, the final step is to deploy the application to Cloud Run and configure its access policies.
 
 1. **Run the deployment script.** From your project root directory, execute the deployment script:
     ```bash
+    cd ../..
     scripts/deploy_media_search.sh
     ```
     This script automates the following steps:
@@ -144,7 +148,13 @@ This guide walks you through the basic steps of using the Media Search solution 
 Once the deployment script finishes, it will output the URL for your Media Search web application.
 
 1.  Open a web browser and navigate to the URL provided by the `deploy_media_search.sh` script.
-1.  You will be prompted to sign in with a Google account. Ensure you are using an account that has been granted "IAP-secured Web App User" permissions during the deployment step.
+
+    Here is an example of the URL:
+    ```
+    you can now access your service at: https://media-search-594050280394.us-central1.run.app 
+    ```
+
+2.  You will be prompted to sign in with a Google account. Ensure you are using an account that has been granted "IAP-secured Web App User" permissions during the deployment step.
 
 ### 2. Testing the Video Processing Pipeline
 
@@ -166,16 +176,47 @@ gsutil cp <YOUR_VIDEO_FILE> gs://$(terraform -chdir="build/terraform" output -ra
 
 Uploading a file to this bucket automatically triggers the video processing workflow.
 
-#### 2.2. Monitoring the Workflow
+#### 2.2. Monitoring and understand the Workflow
 
-You can monitor the progress of the video processing by viewing the logs of the Cloud Run service. The following command will get url to the Google Cloud console and navigate to the url in a web browser.
-```sh
-echo "https://console.cloud.google.com/run/detail/$(terraform -chdir="build/terraform" output -raw cloud_run_region)/$(terraform -chdir="build/terraform" output -raw cloud_run_service_name)/logs?project=$(terraform -chdir="build/terraform" output -raw project_id)"
-```
-Look for log entries related to the processing of your uploaded file. A key log entry to watch for is: `Persisting data`. This message indicates that the video analysis is complete and the extracted metadata is being written to BigQuery.
+Two distinct workflows are triggered:
+1. Proxy-generation-workflow
+2. Analyze-workflow
 
-**NOTE:** The Cloud Run service scales to zero after 15 minutes of inactivity (`[INFO] Shutdown Server ...` will appear in logs). In this case, visit the web application to activate a new instance.
+**Important:** For optimal performance and to minimize run time and the number of video segments, it is recommended that video durations remain between 45 minutes and 1 hour, if possible.
 
+- The proxy generation workflow processes the submitted video, converting it into the appropriate format for the Analyze workflow. Upon completion, the processed file is stored in the low-resolution Google Cloud Storage Bucket, which then triggers the Analyze workflow.
+
+- The Analyze workflow processes the formatted video generated by the proxy generation workflow, performing several key actions:
+    The Vertex AI Gemini model identifies and segments video content based on the defined prompt segment definitions. Also the Gemini model generates a summary of the entire video and each individual segment. Additionally, the AI model extracts any attributes specified in the prompt.
+
+To inspect the workflow, navigate to the Workflows page in the GCP console and click on the relevant workflow name.
+
+![alt_text](images/image1.png "image_tooltip")
+
+Each of the media files uploaded shall trigger an individual workflow: 
+
+![alt_text](images/image2.png "image_tooltip")
+
+
+#### 2.3. Troubleshooting the Workflow / Job
+
+To ensure the workflow and its associated jobs execute correctly, without error, it is important to understand their core components.
+
+To locate the file processed by the workflow, click on the execution ID. The name of the file being processed is found on Line 14 of the Input.
+
+![alt_text](images/image3.png "image_tooltip")
+
+Troubleshooting the workflow / job:
+
+To inspect the job, navigate to the Cloud Run page within the GCP console, then click on the workflow name. Users can review the job logs by clicking "View logs."
+
+![alt_text](images/image4.png "image_tooltip")
+
+![alt_text](images/image5.png "image_tooltip")
+
+After reviewing the job / issue, One can trigger the rerun of the workflow. 
+
+Go to the Execution detail page, click the “Execute again” 
 
 ### 3. Searching for Media Content
 
@@ -203,6 +244,21 @@ By tailoring the prompts, you guide the AI to extract the most relevant and valu
 
 For detailed instructions on how to modify the content type, summary, and segment analysis prompts, please refer to the [Prompt Configuration Guide](docs/PromptConfiguration.md).
 
+
+#### **4.1 Updating the prompt:**
+
+In order to update the prompt, update the “.env.toml” in the config bucket of Cloud Storage.
+
+Please look for the prompt_templates section. 
+
+```
+[prompt_templates.trailer]
+system_instructions = """
+```
+
+After updating the prompt, please make sure the config bucket has the updated .env.toml file. Any new files uploaded to the “high-res” bucket shall be analyzed with the new prompt in the env.toml file. 
+
+
 ### 5. Cleaning Up a Media File
 
 If you need to remove a specific video and all its associated data (including proxy files and metadata), you can use the `cleanup_media_file.sh` script. This is useful for testing or for removing content that is no longer needed.
@@ -225,3 +281,17 @@ UPDATE or DELETE statement over table ... would affect rows in the streaming buf
 ```
 
 To resolve this, wait for the buffer to clear (this can take up to 90 minutes) before re-running the script. For more details, see [BigQuery DML Limitations](https://cloud.google.com/bigquery/docs/data-manipulation-language#limitations).
+
+
+## 6. Re-running Media Analysis
+
+There are several scenarios where a re-run of media analysis is necessary:
+* **Prompt Updates:** Merely updating the .env.toml file will not automatically trigger a re-evaluation of existing media files.
+* **Model Version Changes:** As the Gemini model evolves with Google's ongoing improvements, users may opt to re-process media files to leverage the latest model capabilities.
+
+**Steps:**
+1. Identify all media files requiring re-analysis.
+2. Execute the "Cleaning up a media file" steps detailed in Section 5. This action will purge:
+    - Files residing in both the "High-res" and "Low-res" buckets.
+    - Associated media file records from the BigQuery data table.
+3. Re-upload the original media file to the "High-res" bucket. This action will initiate analysis using the most current prompt.
