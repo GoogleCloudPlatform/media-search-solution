@@ -154,7 +154,7 @@ Once the deployment script finishes, it will output the URL for your Media Searc
     you can now access your service at: https://media-search-594050280394.us-central1.run.app 
     ```
 
-2.  You will be prompted to sign in with a Google account. Ensure you are using an account that has been granted "IAP-secured Web App User" permissions during the deployment step.
+1.  You will be prompted to sign in with a Google account. Ensure you are using an account that has been granted "IAP-secured Web App User" permissions during the deployment step.
 
 ### 2. Testing the Video Processing Pipeline
 
@@ -244,7 +244,6 @@ By tailoring the prompts, you guide the AI to extract the most relevant and valu
 
 For detailed instructions on how to modify the content type, summary, and segment analysis prompts, please refer to the [Prompt Configuration Guide](docs/PromptConfiguration.md).
 
-
 #### **4.1 Updating the prompt:**
 
 In order to update the prompt, update the “.env.toml” in the config bucket of Cloud Storage.
@@ -257,7 +256,6 @@ system_instructions = """
 ```
 
 After updating the prompt, please make sure the config bucket has the updated .env.toml file. Any new files uploaded to the “high-res” bucket shall be analyzed with the new prompt in the env.toml file. 
-
 
 ### 5. Cleaning Up a Media File
 
