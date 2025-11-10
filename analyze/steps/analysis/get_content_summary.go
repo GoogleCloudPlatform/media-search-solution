@@ -128,12 +128,15 @@ func get_content_summary(genaiRunConfig *common.GenaiRunConfig) {
 	if contentSummaryConfig.ContentLength > CHUNK_LENGTH_SEC && contentSummaryConfig.ContentLength-CHUNK_LENGTH_SEC > 60 {
 		chunkConfigs := make([]*ChunkConfig, 0)
 		numberOfChunks := contentSummaryConfig.ContentLength / CHUNK_LENGTH_SEC
-		if contentSummaryConfig.ContentLength%CHUNK_LENGTH_SEC > 0 {
+		remainingSeconds := contentSummaryConfig.ContentLength % CHUNK_LENGTH_SEC
+		// If remaining seconds is more than 60s, we create an additional chunk
+		if remainingSeconds > 60 {
 			numberOfChunks += 1
 		}
 		for chunkIndex := range numberOfChunks {
 			endSecOffSet := (chunkIndex + 1) * CHUNK_LENGTH_SEC
-			if endSecOffSet > contentSummaryConfig.ContentLength {
+			// For the last chunk, we set the end offset to content length if the remaining seconds is less than 60s
+			if endSecOffSet > contentSummaryConfig.ContentLength || contentSummaryConfig.ContentLength-endSecOffSet <= 60 {
 				endSecOffSet = contentSummaryConfig.ContentLength
 			}
 			chunkConfig := &ChunkConfig{
