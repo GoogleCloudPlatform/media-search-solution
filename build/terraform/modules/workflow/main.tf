@@ -62,7 +62,7 @@ resource "google_cloud_run_v2_job" "generate_proxy_job" {
         resources {
           limits = {
             cpu    = "8"
-            memory = "4Gi"
+            memory = "16Gi"
           }
         }
       }
