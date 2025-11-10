@@ -19,7 +19,9 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"log"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
@@ -55,12 +57,24 @@ func NewGenaiStepConfig(stepKey string, genaiRunConfig *GenaiRunConfig, stepLogi
 	}, nil
 }
 
-func getContentCacheMetaDataKey(modelName string, stepCacheId string) string {
-	return fmt.Sprintf("%s_%s_%s", "ims_genai_cache", modelName, stepCacheId)
+func getContentCacheMetaDataKey(modelName string, systemInstructionCacheId string) string {
+	return fmt.Sprintf("%s_%s_%s", "ims_genai_cache", modelName, systemInstructionCacheId)
 }
 
-func getContentCacheMetaDataKeyWithChunk(modelName string, stepCacheId string, startOffsetSec int, endOffsetSec int) string {
-	return fmt.Sprintf("%s_%s_%s_%d_%d", "ims_genai_cache", modelName, stepCacheId, startOffsetSec, endOffsetSec)
+func getContentCacheMetaDataKeyWithChunk(modelName string, systemInstructionCacheId string, startOffsetSec int, endOffsetSec int) string {
+	return fmt.Sprintf("%s_%s_%s_%d_%d", "ims_genai_cache", modelName, systemInstructionCacheId, startOffsetSec, endOffsetSec)
+}
+
+func getSystemInstructionCacheId(systemInstruction *genai.Content) string {
+	if systemInstruction == nil || len(systemInstruction.Parts) == 0 {
+		return "no_system_instruction"
+	}
+	var instructionText string
+	for _, part := range systemInstruction.Parts {
+		instructionText += part.Text
+	}
+	checksum := crc32.ChecksumIEEE([]byte(instructionText))
+	return strconv.FormatUint(uint64(checksum), 16)
 }
 
 func (config *GenaiStepConfig) loadGenaiContentCacheFromMetadata(cacheMetaDataKey string) *genai.CachedContent {
@@ -106,8 +120,9 @@ func (config *GenaiStepConfig) persistGenaiContentCache(cachedContent *genai.Cac
 	}
 }
 
-func (config *GenaiStepConfig) GetGenaiContentCacheWithChunk(modelName string, stepCacheId string, systemInstruction *genai.Content, startOffsetSec int, endOffsetSec int) (*genai.CachedContent, error) {
-	cacheMetaDataKey := getContentCacheMetaDataKeyWithChunk(modelName, stepCacheId, startOffsetSec, endOffsetSec)
+func (config *GenaiStepConfig) GetGenaiContentCacheWithChunk(modelName string, systemInstruction *genai.Content, startOffsetSec int, endOffsetSec int) (*genai.CachedContent, error) {
+	systemInstructionCacheId := getSystemInstructionCacheId(systemInstruction)
+	cacheMetaDataKey := getContentCacheMetaDataKeyWithChunk(modelName, systemInstructionCacheId, startOffsetSec, endOffsetSec)
 	cachedContent := config.loadGenaiContentCacheFromMetadata(cacheMetaDataKey)
 	if cachedContent != nil {
 		return cachedContent, nil
@@ -142,8 +157,9 @@ func (config *GenaiStepConfig) GetGenaiContentCacheWithChunk(modelName string, s
 	return genaiContentCache, nil
 }
 
-func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, stepCacheId string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
-	cacheMetaDataKey := getContentCacheMetaDataKey(modelName, stepCacheId)
+func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
+	systemInstructionCacheId := getSystemInstructionCacheId(systemInstruction)
+	cacheMetaDataKey := getContentCacheMetaDataKey(modelName, systemInstructionCacheId)
 	cachedContent := config.loadGenaiContentCacheFromMetadata(cacheMetaDataKey)
 	if cachedContent != nil {
 		return cachedContent, nil

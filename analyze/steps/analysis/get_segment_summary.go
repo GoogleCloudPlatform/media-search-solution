@@ -96,7 +96,6 @@ func getSegmentSummaryContentCacheName(config *common.GenaiStepConfig, contentTy
 	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
 	genaiContentCache, err := config.GetGenaiContentCacheWithChunk(
 		SEGMENT_SUMMARY_STEP_MODEL,
-		contentType,
 		systemInstructions,
 		startOffset,
 		endOffset,

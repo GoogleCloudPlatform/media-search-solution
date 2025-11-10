@@ -34,7 +34,7 @@ import (
 const (
 	CONTENT_SUMMARY_STEP_MODEL = "creative-flash"
 	maxRetries                 = 5
-	CHUNK_LENGTH_SEC           = 1200
+	CHUNK_LENGTH_SEC           = 600
 )
 
 type ContentSummaryConfigAPI interface {
@@ -125,7 +125,7 @@ func get_content_summary(genaiRunConfig *common.GenaiRunConfig) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if contentSummaryConfig.ContentLength > CHUNK_LENGTH_SEC {
+	if contentSummaryConfig.ContentLength > CHUNK_LENGTH_SEC && contentSummaryConfig.ContentLength-CHUNK_LENGTH_SEC > 60 {
 		chunkConfigs := make([]*ChunkConfig, 0)
 		numberOfChunks := contentSummaryConfig.ContentLength / CHUNK_LENGTH_SEC
 		if contentSummaryConfig.ContentLength%CHUNK_LENGTH_SEC > 0 {
@@ -284,7 +284,6 @@ func doSummaryGeneration(config *common.GenaiStepConfig, summaryConfig ContentSu
 	if summaryConfig.isChunk() {
 		genaiContentCache, err = config.GetGenaiContentCacheWithChunk(
 			CONTENT_SUMMARY_STEP_MODEL,
-			contentType,
 			systemInstructions,
 			summaryConfig.getStartOffsetSec(),
 			summaryConfig.getEndOffsetSec(),
@@ -295,7 +294,6 @@ func doSummaryGeneration(config *common.GenaiStepConfig, summaryConfig ContentSu
 	} else {
 		genaiContentCache, err = config.GetGenaiContentCache(
 			CONTENT_SUMMARY_STEP_MODEL,
-			contentType,
 			systemInstructions,
 		)
 		if err != nil {
@@ -339,6 +337,7 @@ func normalizeAndValidateOutput(config *common.GenaiStepConfig, rawOutput string
 	videoLength, _ := strconv.Atoi(videoLengthStr)
 
 	if err := validateContentSummary(obj, videoLength); err != nil {
+		log.Printf("Content summary validation failed with the generated summary: %s", rawOutput)
 		return "", err
 	}
 

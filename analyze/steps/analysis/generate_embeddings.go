@@ -72,7 +72,8 @@ func generateEmbeddingsLogicFunc(config *common.GenaiStepConfig) func() (string,
 		}
 
 		// 2. Generate embeddings for each segment
-		toInsert := make([]*model.SegmentEmbedding, 0, len(media.Segments))
+		numberOfSegments := len(media.Segments)
+		toInsert := make([]*model.SegmentEmbedding, 0, numberOfSegments)
 		embeddingModel := config.GenaiRunConfig.GenAIEmbedding
 		modelName := config.GenaiRunConfig.CloudConfig.EmbeddingModels["multi-lingual"].Model
 		for _, segment := range media.Segments {
@@ -96,8 +97,19 @@ func generateEmbeddingsLogicFunc(config *common.GenaiStepConfig) func() (string,
 
 		// 3. Insert embeddings into BigQuery
 		inserter := bqClient.Dataset(bqDataset).Table(bqEmbeddingTable).Inserter()
-		if err := inserter.Put(config.BasicRunConfig.Ctx, toInsert); err != nil {
-			return "", fmt.Errorf("failed to insert embeddings into BigQuery: %w", err)
+		if numberOfSegments > 100 {
+			for i := range numberOfSegments / 100 {
+				start := i * 100
+				end := min((i+1)*100, numberOfSegments)
+				if err := inserter.Put(config.BasicRunConfig.Ctx, toInsert[start:end]); err != nil {
+					return "", fmt.Errorf("failed to insert %dth batch ofembeddings into BigQuery: %w", i+1, err)
+				}
+			}
+
+		} else {
+			if err := inserter.Put(config.BasicRunConfig.Ctx, toInsert); err != nil {
+				return "", fmt.Errorf("failed to insert embeddings into BigQuery: %w", err)
+			}
 		}
 
 		return fmt.Sprintf("generated and persisted embeddings for %d segments", len(toInsert)), nil
