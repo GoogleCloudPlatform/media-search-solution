@@ -25,24 +25,14 @@ DATA_DEPS = [
 go_test(
     name = "workflow_test",
     size = "large",
-    srcs = [
-        "base_test.go",
-        "media_embedding_test.go",
-        "media_ingestion_test.go",
-        "media_resize_test.go",
-    ],
+    srcs = ["base_test.go"],
     data = DATA_DEPS,
     rundir = ".",
     deps = [
         "//pkg/cloud",
-        "//pkg/cor",
-        "//pkg/model",
         "//pkg/telemetry",
-        "//pkg/workflow",
         "//test",
-        "@com_github_stretchr_testify//assert",
         "@io_opentelemetry_go_contrib_bridges_otelslog//:otelslog",
         "@io_opentelemetry_go_otel//:otel",
-        "@io_opentelemetry_go_otel//codes",
     ],
 )

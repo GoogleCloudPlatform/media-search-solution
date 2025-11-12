@@ -1,6 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-# Copyright 2024 Google, LLC
+# Copyright 2025 Google, LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +12,28 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Author: rrmcguinness (Ryan McGuinness)
-#         kingman (Charlie Wang)
+# Author: kingman (Charlie Wang)
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "commands",
+    name = "common",
     srcs = [
-        "media_config_update.go",
-        "media_trigger_reader.go",
+        "basic_run_config.go",
+        "basic_step_config.go",
+        "command_step_config.go",
+        "common.go",
+        "genai_run_config.go",
+        "genai_step_config.go",
     ],
-    importpath = "github.com/GoogleCloudPlatform/media-search-solution/pkg/commands",
+    importpath = "github.com/GoogleCloudPlatform/media-search-solution/analyze/common",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/cloud",
-        "//pkg/cor",
+        "@com_google_cloud_go_bigquery//:bigquery",
+        "@com_google_cloud_go_storage//:storage",
+        "@io_opentelemetry_go_otel//:otel",
+        "@io_opentelemetry_go_otel_metric//:metric",
+        "@org_golang_google_genai//:genai",
     ],
 )

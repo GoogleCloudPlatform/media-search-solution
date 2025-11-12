@@ -26,6 +26,13 @@ import (
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cor"
 )
 
+const (
+	// FileCheckRetries is the number of times to check for a file's existence.
+	FileCheckRetries = 5
+	// FileCheckDelay is the time to wait between file existence checks.
+	FileCheckDelay = 10 * time.Second
+)
+
 type MediaConfigUpdateCommand struct {
 	cor.BaseCommand
 	config          *cloud.Config

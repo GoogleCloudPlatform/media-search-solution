@@ -18,8 +18,9 @@
 # This stage uses a Go image, installs Bazel, and builds our application.
 FROM golang:1.21-bookworm AS builder
 
+
 # Install Bazel and other dependencies
-# Using 'bookworm' which is Debian 12
+
 RUN apt-get update && apt-get install -y --no-install-recommends apt-transport-https curl gnupg build-essential && \
     curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > /etc/apt/trusted.gpg.d/bazel.gpg && \
     echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | tee /etc/apt/sources.list.d/bazel.list && \
@@ -31,14 +32,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends apt-transport-h
 # Set the working directory inside the container
 WORKDIR /src
 
-# Copy the entire project context into the container.
-# For more optimized builds, you could copy only necessary files (WORKSPACE, BUILD, go.mod, etc.) first.
 COPY . .
 
-# Build the api_server binary for a Linux environment.
-# This command produces a statically-linked binary.
-RUN bazel build //web/apps/api_server --config=linux
-
+# Build the 'generate_proxy' go_binary target using Bazel.
+RUN bazel build //analyze/steps/proxy:generate_proxy --config=linux
 
 # Stage 2: The Final Image
 # This stage uses a minimal "distroless" image for a small and secure footprint.
@@ -47,15 +44,10 @@ FROM gcr.io/distroless/base-debian12
 # Set the working directory
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage.
-# The path comes from how Bazel structures its output: bazel-bin/path/to/package/target_
-COPY --from=builder /src/bazel-bin/web/apps/api_server/api_server_/api_server .
+# Copy the ffmpeg binary and its libraries.
+COPY --from=builder /src/bazel-bin/bin/ bin/
 
-# Copy the static assets built by the media-search app.
-COPY --from=builder /src/bazel-bin/web/apps/media-search/dist/ web/apps/media-search/dist/
+# Copy the compiled 'generate_proxy' binary from the builder stage.
+COPY --from=builder /src/bazel-bin/analyze/steps/proxy/generate_proxy_/generate_proxy .
 
-# The api_server listens on port 8080
-EXPOSE 8080
-
-# The command to run when the container starts.
-ENTRYPOINT ["/app/api_server"]
+ENTRYPOINT ["/app/generate_proxy"]

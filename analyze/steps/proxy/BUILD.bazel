@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 # Copyright 2024 Google, LLC
 #
@@ -13,20 +13,20 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Author: rrmcguinness (Ryan McGuinness)
-#         kingman (Charlie Wang)
 
 go_library(
-    name = "commands",
-    srcs = [
-        "media_config_update.go",
-        "media_trigger_reader.go",
+    name = "proxy_lib",
+    srcs = ["generate_proxy.go"],
+    importpath = "github.com/GoogleCloudPlatform/media-search-solution/analyze/steps/proxy",
+    visibility = ["//visibility:private"],
+    deps = ["//analyze/common"],
+)
+
+go_binary(
+    name = "generate_proxy",
+    data = [
+        "//:copy_ffmpeg",
     ],
-    importpath = "github.com/GoogleCloudPlatform/media-search-solution/pkg/commands",
+    embed = [":proxy_lib"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//pkg/cloud",
-        "//pkg/cor",
-    ],
 )

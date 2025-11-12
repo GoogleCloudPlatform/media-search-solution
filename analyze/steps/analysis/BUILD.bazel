@@ -1,0 +1,46 @@
+# Copyright 2025
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "analyze_workflow_lib",
+    srcs = [
+        "analyze_workflow.go",
+        "content_type_step.go",
+        "generate_embeddings.go",
+        "get_content_length.go",
+        "get_content_summary.go",
+        "get_segment_summaries.go",
+        "get_segment_summary.go",
+        "persist.go",
+    ],
+    importpath = "github.com/GoogleCloudPlatform/media-search-solution/analyze/steps/analysis",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//analyze/common",
+        "//pkg/cloud",
+        "//pkg/model",
+        "@org_golang_google_api//iterator",
+        "@org_golang_google_genai//:genai",
+    ],
+)
+
+go_binary(
+    name = "analyze_workflow",
+    data = [
+        "//:copy_ffmpeg",
+    ],
+    embed = [":analyze_workflow_lib"],
+    visibility = ["//visibility:public"],
+)

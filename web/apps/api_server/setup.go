@@ -24,7 +24,6 @@ import (
 
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/services"
-	"github.com/GoogleCloudPlatform/media-search-solution/pkg/workflow"
 )
 
 type StateManager struct {
@@ -100,9 +99,6 @@ func InitState(ctx context.Context) {
 		DatasetName:    datasetName,
 		MediaTable:     mediaTableName,
 	}
-
-	embeddingGenerator := workflow.NewMediaEmbeddingGeneratorWorkflow(config, cloudClients)
-	embeddingGenerator.StartTimer()
 
 	SetupListeners(config, cloudClients, cloud.NewTemplateService(config), ctx)
 

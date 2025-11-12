@@ -11,15 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// Author:  rrmcguinness (Ryan McGuinness)
+// Author:  kingman (Charlie Wang)
 
-variable "region" {
-  type        = string
-  description = "Project Default Region"
-}
-
-variable "high_res_bucket" {
-  type        = string
-  description = "The name of the high resultion media bucket"
+output "bucket_id" {
+  value = google_storage_bucket.media_config_resources.id
 }

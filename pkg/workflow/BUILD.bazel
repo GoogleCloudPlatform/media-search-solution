@@ -19,12 +19,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "workflow",
-    srcs = [
-        "media_config_update_workflow.go",
-        "media_embedding_generator_workflow.go",
-        "media_reader_workflow.go",
-        "media_resize_workflow.go",
-    ],
+    srcs = ["media_config_update_workflow.go"],
     data = [
         "//:copy_ffmpeg",
         "//configs:.env.local.toml",
@@ -36,12 +31,5 @@ go_library(
         "//pkg/cloud",
         "//pkg/commands",
         "//pkg/cor",
-        "//pkg/model",
-        "@com_google_cloud_go_bigquery//:bigquery",
-        "@com_google_cloud_go_storage//:storage",
-        "@io_opentelemetry_go_otel//:otel",
-        "@io_opentelemetry_go_otel//codes",
-        "@org_golang_google_api//iterator",
-        "@org_golang_google_genai//:genai",
     ],
 )

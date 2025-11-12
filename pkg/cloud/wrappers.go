@@ -46,9 +46,16 @@ func NewQuotaAwareModel(wrapped *genai.GenerateContentConfig, modelName string, 
 }
 
 // GenerateContent generates content using the wrapped LLM with rate limiting.
-func (q *QuotaAwareGenerativeAIModel) GenerateContent(ctx context.Context, systemInstruction string, contents []*genai.Content, outputSchema *genai.Schema) (resp *genai.GenerateContentResponse, err error) {
+func (q *QuotaAwareGenerativeAIModel) GenerateContent(ctx context.Context, systemInstruction string, cacheName string, contents []*genai.Content, outputSchema *genai.Schema) (resp *genai.GenerateContentResponse, err error) {
 	// Create a copy of the generative content config to avoid modifying the original.
 	config := *q.GenerativeContentConfig
+
+	// When a cache name is provided, use the cache.
+	if cacheName != "" {
+		config.CachedContent = cacheName
+		// when using a cache, system instruction should not be set
+		config.SystemInstruction = nil
+	}
 
 	// set the desired output schema, take it from
 	if outputSchema != nil {
@@ -84,6 +91,6 @@ func (q *QuotaAwareGenerativeAIModel) GenerateContent(ctx context.Context, syste
 	} else {
 		// If rate limit is exceeded, wait for 5 seconds and try again.
 		time.Sleep(time.Second * 5)
-		return q.GenerateContent(ctx, systemInstruction, contents, outputSchema)
+		return q.GenerateContent(ctx, systemInstruction, cacheName, contents, outputSchema)
 	}
 }

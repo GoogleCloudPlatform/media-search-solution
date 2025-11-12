@@ -1,4 +1,4 @@
-// Copyright 2024 Google, LLC
+// Copyright 2025 Google, LLC
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Author:  rrmcguinness (Ryan McGuinness)
+// Author: kingman (Charlie Wang)
+
+variable "project_id" {
+  type = string
+}
 
 variable "region" {
-  type        = string
-  description = "Project Default Region"
+  type = string
+}
+
+variable "proxy_generator_container" {
+  type = string
+}
+
+variable "media_analysis_container" {
+  type = string
+}
+
+variable "low_res_bucket" {
+  type = string
+}
+
+variable "config_bucket" {
+  type = string
 }
 
 variable "high_res_bucket" {
-  type        = string
-  description = "The name of the high resultion media bucket"
+  type = string
+}
+
+
+variable "media_search_service_account_email" {
+  type = string
 }

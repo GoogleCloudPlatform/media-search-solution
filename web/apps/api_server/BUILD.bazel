@@ -43,7 +43,6 @@ go_library(
 go_binary(
     name = "api_server",
     data = [
-        "//:copy_ffmpeg",
         "//configs:.env.local.toml",
         "//configs:.env.toml",
         "//web/apps/media-search:build",

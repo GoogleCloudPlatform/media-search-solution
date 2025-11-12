@@ -1,4 +1,4 @@
-// Copyright 2024 Google, LLC
+// Copyright 2025 Google, LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,14 +18,21 @@
 package main
 
 import (
-	"context"
+	"log"
 
-	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
-	"github.com/GoogleCloudPlatform/media-search-solution/pkg/workflow"
+	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
 )
 
-func SetupListeners(config *cloud.Config, cloudClients *cloud.ServiceClients, templateService *cloud.TemplateService, ctx context.Context) {
-	mediaConfigUpdateWorkflow := workflow.NewMediaConfigUpdateWorkflow(config, templateService)
-	cloudClients.PubSubListeners["ConfigTopic"].SetCommand(mediaConfigUpdateWorkflow)
-	cloudClients.PubSubListeners["ConfigTopic"].Listen(ctx)
+func main() {
+	genaiRunConfig, err := common.NewGenaiRunConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	get_content_length(&genaiRunConfig.BasicRunConfig)
+	get_content_type(genaiRunConfig)
+	get_content_summary(genaiRunConfig)
+	get_segment_summaries(genaiRunConfig)
+	persist_analysis_result(genaiRunConfig)
+	generate_embeddings(genaiRunConfig)
+
 }

@@ -69,11 +69,13 @@ APIS_TO_ENABLE=(
   "artifactregistry.googleapis.com"
   "cloudbuild.googleapis.com"
   "cloudresourcemanager.googleapis.com"
+  "eventarc.googleapis.com"
   "iam.googleapis.com"
   "iap.googleapis.com"
   "pubsub.googleapis.com"
   "run.googleapis.com"
   "storage.googleapis.com"
+  "workflows.googleapis.com"
 )
 
 echo "Enabling necessary Google Cloud APIs. This may take a few minutes..."
@@ -85,6 +87,12 @@ echo
 
 echo "Creating Vertex AI service agent identity..."
 gcloud beta services identity create --service=aiplatform.googleapis.com --project="$PROJECT_ID"
+
+echo "Creating Workflows service agent identity..."
+gcloud beta services identity create --service=workflows.googleapis.com --project="$PROJECT_ID"
+
+echo "Creating Eventarc service agent identity..."
+gcloud beta services identity create --service=eventarc.googleapis.com --project="$PROJECT_ID"
 
 echo "Waiting 60 seconds for the service agent to be created and propagated..."
 sleep 60
@@ -117,6 +125,25 @@ for role in "${SERVICE_AGENT_ROLES[@]}"; do
     --condition=None
 done
 echo "Service Agent IAM roles assigned."
+echo
+
+EVENTARC_SERVICE_AGENT="service-${PROJECT_NUMBER}@gcp-sa-eventarc.iam.gserviceaccount.com"
+echo "Eventarc Service Agent: $EVENTARC_SERVICE_AGENT"
+
+EVENTARC_SERVICE_AGENT_ROLES=(
+  "roles/storage.bucketViewer"
+)
+
+echo "Assigning IAM roles to the Eventarc service agent..."
+for role in "${EVENTARC_SERVICE_AGENT_ROLES[@]}"; do
+
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:$EVENTARC_SERVICE_AGENT" \
+    --role="$role" \
+    --quiet \
+    --condition=None
+done
+echo "Eventarc Service Agent IAM roles assigned."
 echo
 
 # --- Terraform Variables File ---
