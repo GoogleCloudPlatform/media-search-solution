@@ -176,7 +176,29 @@ gsutil cp <YOUR_VIDEO_FILE> gs://$(terraform -chdir="build/terraform" output -ra
 
 Uploading a file to this bucket automatically triggers the video processing workflow.
 
-#### 2.2. Monitoring and understand the Workflow
+#### 2.2. Monitoring the Workflow
+
+You can monitor the progress of the video processing by viewing the execution logs of the Cloud Run Jobs. The following command will generate a URL to the Google Cloud console where you can view the jobs executions detail, and drill into exection logs.
+
+- For the proxy generation job, run the following command:
+
+```sh
+echo "https://console.cloud.google.com/run/jobs/details/$(terraform -chdir="build/terraform" output -raw cloud_run_region)/generate-proxy-job/executions?project=$(terraform -chdir="build/terraform" output -raw project_id)"
+```
+
+- For the media analysis job, run the following command:
+
+```sh
+echo "https://console.cloud.google.com/run/jobs/details/$(terraform -chdir="build/terraform" output -raw cloud_run_region)/media-analysis-job/executions?project=$(terraform -chdir="build/terraform" output -raw project_id)"
+```
+
+Each entry in the list corresponds to the processing of a single video file. You can monitor the status of your jobs (e.g., `Succeeded`, `Failed`) directly from this list.
+To identify which video a specific job processed and to view its detailed logs:
+1. Click on an execution in the list to open its details page.
+1. Navigate to the YAML tab and find the `INPUT_FILE` environment variable to see the path of the processed video file.
+1. To view detailed logs, switch back to the `Tasks` tab and click `View Logs`. A key log entry to watch for in the analysis job is `Persisting batch of n segment summaries...`, which indicates that the video analysis is complete and the metadata is being written to BigQuery.
+
+#### 2.3. Understanding the Workflow
 
 Two distinct workflows are triggered:
 1. Proxy-generation-workflow
@@ -198,7 +220,7 @@ Each of the media files uploaded shall trigger an individual workflow:
 ![alt_text](images/image2.png "image_tooltip")
 
 
-#### 2.3. Troubleshooting the Workflow / Job
+#### 2.4. Troubleshooting the Workflow / Job
 
 To ensure the workflow and its associated jobs execute correctly, without error, it is important to understand their core components.
 
@@ -217,6 +239,8 @@ To inspect the job, navigate to the Cloud Run page within the GCP console, then 
 After reviewing the job / issue, One can trigger the rerun of the workflow. 
 
 Go to the Execution detail page, click the “Execute again” 
+
+The other method is to follow the [DeveloperSetup Doc](docs/DeveloperSetup.md) on how to **Manually trigger pipeline executions**
 
 ### 3. Searching for Media Content
 
