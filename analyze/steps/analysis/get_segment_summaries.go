@@ -83,6 +83,7 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 		// Goroutine to collect results and update metadata in batches
 		var updateWg sync.WaitGroup
 		updateWg.Add(1)
+		var flushMutex sync.Mutex
 		go func() {
 			defer updateWg.Done()
 			const batchSize = 5
@@ -91,12 +92,16 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 			defer ticker.Stop()
 
 			flush := func() {
+				flushMutex.Lock()
+				defer flushMutex.Unlock()
 				if len(metadataUpdate) > 0 {
 					log.Printf("Persisting batch of %d segment summaries...", len(metadataUpdate))
+
 					if _, err := config.UpdateGCSObjectMetadata(metadataUpdate); err != nil {
 						log.Printf("Warning: failed to persist segment summary batch: %v", err)
+					} else {
+						metadataUpdate = make(map[string]string) //Only clear if write was successful
 					}
-					metadataUpdate = make(map[string]string) // Clear after flushing
 				}
 			}
 
