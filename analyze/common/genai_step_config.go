@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/genai"
 )
@@ -38,6 +39,15 @@ type GenaiStepConfig struct {
 	BasicStepConfig
 	GenaiRunConfig *GenaiRunConfig
 	Counters       *GenAICounter
+}
+
+type GenerateContentConfig struct {
+	ModelName         string
+	SystemInstruction string
+	Prompt            string
+	StartOffset       int
+	EndOffset         int
+	Schema            *genai.Schema
 }
 
 func NewGenaiStepConfig(stepKey string, genaiRunConfig *GenaiRunConfig, stepLogic func() (string, error)) (*GenaiStepConfig, error) {
@@ -120,7 +130,7 @@ func (config *GenaiStepConfig) persistGenaiContentCache(cachedContent *genai.Cac
 	}
 }
 
-func (config *GenaiStepConfig) GetGenaiContentCacheWithChunk(modelName string, systemInstruction *genai.Content, startOffsetSec int, endOffsetSec int) (*genai.CachedContent, error) {
+func (config *GenaiStepConfig) getGenaiContentCacheWithChunk(modelName string, systemInstruction *genai.Content, startOffsetSec int, endOffsetSec int) (*genai.CachedContent, error) {
 	systemInstructionCacheId := getSystemInstructionCacheId(systemInstruction)
 	cacheMetaDataKey := getContentCacheMetaDataKeyWithChunk(modelName, systemInstructionCacheId, startOffsetSec, endOffsetSec)
 	cachedContent := config.loadGenaiContentCacheFromMetadata(cacheMetaDataKey)
@@ -157,7 +167,7 @@ func (config *GenaiStepConfig) GetGenaiContentCacheWithChunk(modelName string, s
 	return genaiContentCache, nil
 }
 
-func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
+func (config *GenaiStepConfig) getGenaiContentCache(modelName string, systemInstruction *genai.Content) (*genai.CachedContent, error) {
 	systemInstructionCacheId := getSystemInstructionCacheId(systemInstruction)
 	cacheMetaDataKey := getContentCacheMetaDataKey(modelName, systemInstructionCacheId)
 	cachedContent := config.loadGenaiContentCacheFromMetadata(cacheMetaDataKey)
@@ -181,4 +191,89 @@ func (config *GenaiStepConfig) GetGenaiContentCache(modelName string, systemInst
 	config.persistGenaiContentCache(genaiContentCache, cacheMetaDataKey)
 
 	return genaiContentCache, nil
+}
+func (config *GenaiStepConfig) GenerateContent(generateContentConfig *GenerateContentConfig) (string, error) {
+	contents := []*genai.Content{
+		{Parts: []*genai.Part{
+			genai.NewPartFromText(generateContentConfig.Prompt),
+		},
+			Role: genai.RoleUser},
+	}
+
+	genaiContentCache, _ := config.getGenaiContentCache(
+		generateContentConfig.ModelName,
+		genai.NewContentFromText(generateContentConfig.SystemInstruction, genai.RoleUser))
+
+	var contentCacheName string
+	var systemInstruction string
+	if genaiContentCache != nil {
+		contentCacheName = genaiContentCache.Name
+		systemInstruction = ""
+	} else {
+		contents[0].Parts = append(contents[0].Parts, &genai.Part{
+			FileData: &genai.FileData{
+				FileURI:  config.GenaiRunConfig.GetInputFileGCSURI(),
+				MIMEType: GENAI_INPUT_FILE_TYPE,
+			},
+		})
+		contentCacheName = ""
+		systemInstruction = generateContentConfig.SystemInstruction
+	}
+
+	return cloud.GenerateMultiModalResponse(
+		config.BasicRunConfig.Ctx,
+		config.Counters.InputCounter,
+		config.Counters.OutputCounter,
+		config.Counters.RetryCounter, 0,
+		config.GenaiRunConfig.AgentModels[generateContentConfig.ModelName],
+		systemInstruction,
+		contentCacheName,
+		contents,
+		generateContentConfig.Schema)
+
+}
+func (config *GenaiStepConfig) GenerateContentWithClippingInterval(generateContentConfig *GenerateContentConfig) (string, error) {
+	contents := []*genai.Content{
+		{Parts: []*genai.Part{
+			genai.NewPartFromText(generateContentConfig.Prompt),
+		},
+			Role: genai.RoleUser},
+	}
+
+	genaiContentCache, _ := config.getGenaiContentCacheWithChunk(
+		generateContentConfig.ModelName,
+		genai.NewContentFromText(generateContentConfig.SystemInstruction, genai.RoleUser),
+		generateContentConfig.StartOffset,
+		generateContentConfig.EndOffset)
+
+	var contentCacheName string
+	var systemInstruction string
+	if genaiContentCache != nil {
+		contentCacheName = genaiContentCache.Name
+		systemInstruction = ""
+	} else {
+		contents[0].Parts = append(contents[0].Parts, &genai.Part{
+			FileData: &genai.FileData{
+				FileURI:  config.GenaiRunConfig.GetInputFileGCSURI(),
+				MIMEType: GENAI_INPUT_FILE_TYPE,
+			},
+			VideoMetadata: &genai.VideoMetadata{
+				StartOffset: time.Duration(generateContentConfig.StartOffset) * time.Second,
+				EndOffset:   time.Duration(generateContentConfig.EndOffset) * time.Second,
+			},
+		})
+		contentCacheName = ""
+		systemInstruction = generateContentConfig.SystemInstruction
+	}
+
+	return cloud.GenerateMultiModalResponse(
+		config.BasicRunConfig.Ctx,
+		config.Counters.InputCounter,
+		config.Counters.OutputCounter,
+		config.Counters.RetryCounter, 0,
+		config.GenaiRunConfig.AgentModels[generateContentConfig.ModelName],
+		systemInstruction,
+		contentCacheName,
+		contents,
+		generateContentConfig.Schema)
 }

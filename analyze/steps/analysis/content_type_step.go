@@ -23,8 +23,6 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
-	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
-	"google.golang.org/genai"
 )
 
 const (
@@ -54,30 +52,17 @@ func getContentTypLogicFunc(config *common.GenaiStepConfig) func() (string, erro
 			return "", err
 		}
 
-		genaiContentCache, err := config.GetGenaiContentCacheWithChunk(
-			CONTENT_TYPE_STEP_MODEL,
-			config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL].GenerativeContentConfig.SystemInstruction,
-			CONTENT_TYPE_ANALYSIS_START_OFFSET,
-			CONTENT_TYPE_ANALYSIS_END_OFFSET,
-		)
-		if err != nil {
-			return "", err
+		generateContentConfig := &common.GenerateContentConfig{
+			ModelName:         CONTENT_TYPE_STEP_MODEL,
+			SystemInstruction: config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL].GenerativeContentConfig.SystemInstruction.Parts[0].Text,
+			Prompt:            buffer.String(),
+			Schema:            nil,
+			StartOffset:       CONTENT_TYPE_ANALYSIS_START_OFFSET,
+			EndOffset:         CONTENT_TYPE_ANALYSIS_END_OFFSET,
 		}
 
-		contents := []*genai.Content{
-			{Parts: []*genai.Part{
-				genai.NewPartFromText(buffer.String()),
-			},
-				Role: "user"},
-		}
-		out, err := cloud.GenerateMultiModalResponse(
-			config.GenaiRunConfig.Ctx,
-			config.Counters.InputCounter,
-			config.Counters.OutputCounter,
-			config.Counters.RetryCounter, 0,
-			config.GenaiRunConfig.AgentModels[CONTENT_TYPE_STEP_MODEL],
-			"",
-			genaiContentCache.Name, contents, nil)
+		out, err := config.GenerateContentWithClippingInterval(generateContentConfig)
+
 		if err != nil {
 			log.Fatal(err)
 		}

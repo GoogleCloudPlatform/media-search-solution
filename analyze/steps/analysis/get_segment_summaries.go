@@ -77,6 +77,9 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 		resultsChan := make(chan result, len(segmentsToProcess))
 		var wg sync.WaitGroup
 
+		// Thread-safe map to capture actual errors from workers
+		var processingErrors sync.Map
+
 		// Goroutine to collect results and update metadata in batches
 		var updateWg sync.WaitGroup
 		updateWg.Add(1)
@@ -104,11 +107,16 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 						flush()
 						return
 					}
-					if res.err == nil {
-						status := common.StepStatus{Output: res.output, Status: common.StepCompleted}
-						if statusBytes, err := json.Marshal(status); err == nil {
-							metadataUpdate[res.stepKey] = string(statusBytes)
-						}
+
+					if res.err != nil {
+						log.Printf("Error processing step %s: %v", res.stepKey, res.err)
+						processingErrors.Store(res.stepKey, res.err)
+						continue // Skip adding to metadata if failed
+					}
+
+					status := common.StepStatus{Output: res.output, Status: common.StepCompleted}
+					if statusBytes, err := json.Marshal(status); err == nil {
+						metadataUpdate[res.stepKey] = string(statusBytes)
 					}
 					if len(metadataUpdate) >= batchSize {
 						flush()
@@ -140,6 +148,15 @@ func getSegmentSummariesLogicFunc(config *common.GenaiStepConfig) func() (string
 		wg.Wait()
 		close(resultsChan)
 		updateWg.Wait() // Wait for the final metadata update to complete
+
+		var anyErr error
+		processingErrors.Range(func(key, value any) bool {
+			anyErr = fmt.Errorf("step %v failed: %w", key, value.(error))
+			return false // stop iteration
+		})
+		if anyErr != nil {
+			return "", anyErr
+		}
 
 		segmentSummaryStepKeys := make([]string, len(contentSummaryObj.SegmentTimeStamps))
 		for i := range contentSummaryObj.SegmentTimeStamps {

@@ -25,9 +25,7 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
-	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/model"
-	"google.golang.org/genai"
 )
 
 const (
@@ -63,47 +61,17 @@ func getSegmentSummaryLogicFunc(config *common.GenaiStepConfig, mediaSummary *mo
 			return "", fmt.Errorf("invalid end timestamp format for segment %d: %w", segmentSequenceNumber, err)
 		}
 
-		genaiContentCacheName, err := getSegmentSummaryContentCacheName(config, contentType, startOffset, endOffset)
-		if err != nil {
-			return "", err
+		generateContentConfig := &common.GenerateContentConfig{
+			ModelName:         SEGMENT_SUMMARY_STEP_MODEL,
+			SystemInstruction: config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions,
+			Prompt:            prompt,
+			StartOffset:       startOffset,
+			EndOffset:         endOffset,
+			Schema:            model.NewSegmentExtractorSchema(),
 		}
 
-		contents := []*genai.Content{
-			{Parts: []*genai.Part{
-				genai.NewPartFromText(prompt),
-			},
-				Role: "user"},
-		}
-
-		out, err := cloud.GenerateMultiModalResponse(
-			config.BasicRunConfig.Ctx,
-			config.Counters.InputCounter,
-			config.Counters.OutputCounter,
-			config.Counters.RetryCounter, 0,
-			config.GenaiRunConfig.AgentModels[SEGMENT_SUMMARY_STEP_MODEL],
-			"",
-			genaiContentCacheName,
-			contents,
-			model.NewSegmentExtractorSchema())
-		if err != nil {
-			return "", err
-		}
-		return out, nil
+		return config.GenerateContentWithClippingInterval(generateContentConfig)
 	}
-}
-
-func getSegmentSummaryContentCacheName(config *common.GenaiStepConfig, contentType string, startOffset int, endOffset int) (string, error) {
-	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
-	genaiContentCache, err := config.GetGenaiContentCacheWithChunk(
-		SEGMENT_SUMMARY_STEP_MODEL,
-		systemInstructions,
-		startOffset,
-		endOffset,
-	)
-	if err != nil {
-		return "", err
-	}
-	return genaiContentCache.Name, nil
 }
 
 func getTimeDurationFrom(timestamp string) (int, error) {

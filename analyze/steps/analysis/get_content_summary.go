@@ -26,9 +26,7 @@ import (
 	"strconv"
 
 	"github.com/GoogleCloudPlatform/media-search-solution/analyze/common"
-	"github.com/GoogleCloudPlatform/media-search-solution/pkg/cloud"
 	"github.com/GoogleCloudPlatform/media-search-solution/pkg/model"
-	"google.golang.org/genai"
 )
 
 const (
@@ -268,54 +266,33 @@ func consolidateChunkSummaries(config *common.GenaiRunConfig, chunkConfigs []*Ch
 
 func doSummaryGeneration(config *common.GenaiStepConfig, summaryConfig ContentSummaryConfigAPI) (string, error) {
 	contentType := summaryConfig.getContentType()
+	videoLength := summaryConfig.getLengthStr()
 
-	prompt, err := generatePrompt(config, summaryConfig.getLengthStr(), contentType)
+	prompt, err := generatePrompt(config, videoLength, contentType)
 	if err != nil {
 		return "", err
 	}
 
-	videoLength := summaryConfig.getLengthStr()
+	generateContentConfig := &common.GenerateContentConfig{
+		ModelName:         CONTENT_SUMMARY_STEP_MODEL,
+		SystemInstruction: config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions,
+		Prompt:            prompt,
+		Schema:            model.NewMediaSummarySchema(),
+	}
 
-	systemInstructions := genai.NewContentFromText(config.GenaiRunConfig.TemplateService.GetTemplateBy(contentType).SystemInstructions, genai.RoleUser)
-	contents := []*genai.Content{
-		{Parts: []*genai.Part{
-			genai.NewPartFromText(prompt),
-		},
-			Role: genai.RoleUser},
-	}
-	var genaiContentCache *genai.CachedContent
 	if summaryConfig.isChunk() {
-		genaiContentCache, err = config.GetGenaiContentCacheWithChunk(
-			CONTENT_SUMMARY_STEP_MODEL,
-			systemInstructions,
-			summaryConfig.getStartOffsetSec(),
-			summaryConfig.getEndOffsetSec(),
-		)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		genaiContentCache, err = config.GetGenaiContentCache(
-			CONTENT_SUMMARY_STEP_MODEL,
-			systemInstructions,
-		)
-		if err != nil {
-			return "", err
-		}
+		generateContentConfig.StartOffset = summaryConfig.getStartOffsetSec()
+		generateContentConfig.EndOffset = summaryConfig.getEndOffsetSec()
 	}
+
 	var stepErr error
+	var out string
 	for i := range maxRetries {
-		out, err := cloud.GenerateMultiModalResponse(
-			config.BasicRunConfig.Ctx,
-			config.Counters.InputCounter,
-			config.Counters.OutputCounter,
-			config.Counters.RetryCounter, 0,
-			config.GenaiRunConfig.AgentModels[CONTENT_SUMMARY_STEP_MODEL],
-			"",
-			genaiContentCache.Name,
-			contents,
-			model.NewMediaSummarySchema(),
-		)
+		if summaryConfig.isChunk() {
+			out, err = config.GenerateContentWithClippingInterval(generateContentConfig)
+		} else {
+			out, err = config.GenerateContent(generateContentConfig)
+		}
 		if err != nil {
 			stepErr = err
 			continue
@@ -449,11 +426,6 @@ func validateContentSummary(summary *model.MediaSummary, videoLength int) error 
 		// 4. the start of one segement is same as the end the previous segment, here we can tolerate 1 second diff
 		if i > 0 && start-prevEnd > 1 {
 			return fmt.Errorf("segment %d: gap detected, start time %s does not follow previous end time %d within 1s tolerance", i+1, segment.Start, prevEnd)
-		}
-
-		//5. ensure the segment length is at minimum 5 second, shorter than this gemini won't give any valid response
-		if end-start < 5 {
-			return fmt.Errorf("segment %d: length of less than 5 seconds detected", i+1)
 		}
 
 		prevEnd = end
