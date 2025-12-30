@@ -63,7 +63,7 @@ sudo apt-get install -y nodejs
 
 # Copy your Node.js program (replace with your actual implementation)
 # Example:
-# sudo gsutil cp gs://your-bucket/your-program.js /home/your-user/
+# sudo gcloud storage cp gs://your-bucket/your-program.js /home/your-user/
 
 # Start your Node.js program (replace with your actual implementation)
 # Example:

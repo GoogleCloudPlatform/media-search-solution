@@ -172,10 +172,10 @@ To test the end-to-end processing workflow, you need to upload a video file to t
 echo "https://console.cloud.google.com/storage/browser/$(terraform -chdir="build/terraform" output -raw high_res_bucket)?project=$(terraform -chdir="build/terraform" output -raw project_id)"
 ```
 
-**Option 2:**.  Use the `gsutil` command-line tool to upload a video file. Replace `<YOUR_VIDEO_FILE>` with the path to your video.
+**Option 2:**.  Use the `gcloud storage` command-line tool to upload a video file. Replace `<YOUR_VIDEO_FILE>` with the path to your video.
 
 ```sh
-gsutil cp <YOUR_VIDEO_FILE> gs://$(terraform -chdir="build/terraform" output -raw high_res_bucket)/
+gcloud storage cp <YOUR_VIDEO_FILE> gs://$(terraform -chdir="build/terraform" output -raw high_res_bucket)/
 ```
 
 Uploading a file to this bucket automatically triggers the video processing workflow.

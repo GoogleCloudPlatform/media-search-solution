@@ -201,7 +201,7 @@ Example Output:
 To apply prompt customizations, upload the modified `configs/.env.toml` file to the configuration bucket in Cloud Storage using the following command from the project root:
 
 ```sh
-gsutil cp configs/.env.toml gs://$(terraform -chdir="build/terraform" output -raw config_bucket)/.env.toml
+gcloud storage cp configs/.env.toml gs://$(terraform -chdir="build/terraform" output -raw config_bucket)/.env.toml
 ```
 
 The Media Search service automatically detects this change, reloads the configuration, and uses the new prompts for all subsequent video processing.

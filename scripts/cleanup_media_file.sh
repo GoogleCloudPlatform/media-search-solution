@@ -89,18 +89,18 @@ main() {
 
   # High-resolution file
   local high_res_uri="gs://${high_res_bucket}/${media_file_name}"
-  if gsutil -q stat "${high_res_uri}"; then
+  if gcloud storage objects list --stat --fetch-encrypted-object-hashes "${high_res_uri}"; then
     info "Deleting high-resolution file: ${high_res_uri}"
-    gsutil rm "${high_res_uri}"
+    gcloud storage rm "${high_res_uri}"
   else
     info "High-resolution file not found, skipping: ${high_res_uri}"
   fi
 
   # Low-resolution file
   local low_res_uri="gs://${low_res_bucket}/${media_file_name}"
-  if gsutil -q stat "${low_res_uri}"; then
+  if gcloud storage objects list --stat --fetch-encrypted-object-hashes "${low_res_uri}"; then
     info "Deleting low-resolution file: ${low_res_uri}"
-    gsutil rm "${low_res_uri}"
+    gcloud storage rm "${low_res_uri}"
   else
     info "Low-resolution file not found, skipping: ${low_res_uri}"
   fi
