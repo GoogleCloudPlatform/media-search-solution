@@ -57,18 +57,18 @@ else
     echo "No existing service to undeploy."
 fi
 
-if [ "$(gsutil -q stat gs://${CONFIG_BUCKET}/.env.toml ; echo $?)" = 0 ]; then
+if [ "$(gcloud storage objects list --stat --fetch-encrypted-object-hashes gs://${CONFIG_BUCKET}/.env.toml ; echo $?)" = 0 ]; then
   echo ".env.toml file is already uploaded to gs://${CONFIG_BUCKET}"
 else
   echo "Uploading .env.toml file to gs://${CONFIG_BUCKET}"
-  gsutil cp "${PROJECT_ROOT}/configs/.env.toml" "gs://${CONFIG_BUCKET}/.env.toml"
+  gcloud storage cp "${PROJECT_ROOT}/configs/.env.toml" "gs://${CONFIG_BUCKET}/.env.toml"
 fi
 
-if [ "$(gsutil -q stat gs://${CONFIG_BUCKET}/.env.local.toml ; echo $?)" = 0 ]; then
+if [ "$(gcloud storage objects list --stat --fetch-encrypted-object-hashes gs://${CONFIG_BUCKET}/.env.local.toml ; echo $?)" = 0 ]; then
   echo ".env.local.toml file is already uploaded to gs://${CONFIG_BUCKET}"
 else
   echo "Uploading .env.local.toml file to gs://${CONFIG_BUCKET}"
-  gsutil cp "${PROJECT_ROOT}/configs/.env.local.toml" "gs://${CONFIG_BUCKET}/.env.local.toml"
+  gcloud storage cp "${PROJECT_ROOT}/configs/.env.local.toml" "gs://${CONFIG_BUCKET}/.env.local.toml"
 fi
 
 # Deploy the service to Cloud Run
